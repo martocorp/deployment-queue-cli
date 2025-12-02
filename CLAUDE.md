@@ -13,6 +13,12 @@ make build     # Full build: lint, test, security, package
 make clean     # Remove venv and all build artifacts
 ```
 
+CI variants (no venv, for GitHub Actions):
+```bash
+make init:ci   # Install dependencies system-wide
+make build:ci  # Full build without venv activation
+```
+
 Run a single test:
 ```bash
 . .venv/bin/activate && PYTHONPATH=src/ pytest tests/test_auth.py::TestCredentials::test_credentials_creation -v
@@ -37,7 +43,7 @@ This is a CLI tool for the Deployment Queue API, built with Typer and Rich for t
 
 ## Code Standards
 
-- Python 3.11+, 100 char line length
+- Python 3.13+, 100 char line length
 - Type hints required on all functions
 - Use `Optional[T]` for nullable types
 - Async functions for HTTP operations

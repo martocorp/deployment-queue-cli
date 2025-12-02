@@ -6,16 +6,32 @@ init: clean
 	pip install uv; \
 	uv pip install -e ".[dev]"
 
+.PHONY: init\:ci
+init\:ci:
+	@echo "Installing dependencies for CI..."
+	pip install uv
+	uv pip install --system -e ".[dev]"
+
 .PHONY: lint
 lint:
 	. .venv/bin/activate; \
 	ruff check src/ tests/; \
-	mypy src/ --python-version 3.11 --ignore-missing-imports
+	mypy src/ --python-version 3.13 --ignore-missing-imports
+
+.PHONY: lint\:ci
+lint\:ci:
+	ruff check src/ tests/
+	mypy src/ --python-version 3.13 --ignore-missing-imports
 
 .PHONY: format
 format:
 	. .venv/bin/activate; \
 	ruff check --fix src/ tests/; \
+	ruff format src/ tests/
+
+.PHONY: format\:ci
+format\:ci:
+	ruff check --fix src/ tests/
 	ruff format src/ tests/
 
 .PHONY: test
@@ -25,6 +41,11 @@ test:
 	coverage report; \
 	coverage html --directory target/coverage
 
+.PHONY: test\:ci
+test\:ci:
+	PYTHONPATH=src/ coverage run -m pytest tests/ -v
+	coverage report
+
 .PHONY: security
 security:
 	@echo "Running security scans..."
@@ -32,9 +53,18 @@ security:
 	pip install bandit; \
 	bandit -r src/ -f screen
 
+.PHONY: security\:ci
+security\:ci:
+	@echo "Running security scans..."
+	bandit -r src/ -f screen
+
 .PHONY: build
 build: lint test security
 	. .venv/bin/activate; \
+	python -m build
+
+.PHONY: build\:ci
+build\:ci: lint\:ci test\:ci security\:ci
 	python -m build
 
 .PHONY: clean
