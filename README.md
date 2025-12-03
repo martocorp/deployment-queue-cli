@@ -1,242 +1,175 @@
 # Deployment Queue CLI
 
-CLI tool for interacting with the Deployment Queue API.
+A CLI tool for interacting with the Deployment Queue API. Manage deployments, view history, update status, and perform rollbacks from your terminal.
 
-## Installation
+## Key Features
+
+- **Dual Authentication**: GitHub Device Flow for interactive use, PAT for scripts
+- **Organisation-Aware**: Switch between organisations, verify membership
+- **Rich Output**: Formatted tables and panels using Rich
+- **Async HTTP**: Fast API communication using httpx
+
+## Documentation
+
+- [Usage Guide](docs/USAGE.md) - Detailed CLI reference and examples
+- [Code Style Guide](docs/CODESTYLE.md) - Coding standards and conventions
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.13+
+- GitHub account with organisation membership
+- Access to the Deployment Queue API
+
+### Installation
 
 ```bash
 pip install deployment-queue-cli
-# or
-uv pip install deployment-queue-cli
 ```
 
-## Development Setup
+Or from source:
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/deployment-queue-cli.git
-cd deployment-queue-cli
-
-# Set up virtual environment and install dependencies
 make init
-
-# Run tests
-make test
-
-# Run linting
-make lint
-
-# Format code
-make format
-
-# Build package
-make build
 ```
 
-## Configuration
-
-Set environment variables or create a `.env` file:
+### Configuration
 
 ```bash
-# API URL (required)
+# Set API URL and GitHub OAuth Client ID
 export DEPLOYMENT_QUEUE_CLI_API_URL=https://deployments.example.com
+export DEPLOYMENT_QUEUE_CLI_GITHUB_CLIENT_ID=Iv1.xxxxxxxxxx
 
-# GitHub OAuth App Client ID (required for device flow login)
-export DEPLOYMENT_QUEUE_CLI_GITHUB_CLIENT_ID=your_oauth_app_client_id
+# Login
+deployment-queue-cli login --org my-organisation
 ```
 
-Or per-command:
+## Commands
 
-```bash
-deployment-queue-cli list --api-url https://deployments.example.com
-```
+| Command | Description |
+|---------|-------------|
+| `login` | Authenticate with GitHub (Device Flow or PAT) |
+| `logout` | Clear stored credentials |
+| `whoami` | Show current session info |
+| `switch-org` | Switch to different organisation |
+| `list-orgs` | List available organisations |
+| `list` | List deployments with filters |
+| `get` | Get deployment details by ID |
+| `current` | Get current deployment for a component |
+| `history` | Show deployment history for a component |
+| `update-status` | Update deployment status |
+| `rollback` | Create rollback deployment |
 
 ## Authentication
 
-### Device Flow (Recommended)
+The CLI supports two authentication methods:
+
+| Method | Use Case | Command |
+|--------|----------|---------|
+| **Device Flow** | Interactive terminal | `deployment-queue-cli login --org my-org` |
+| **PAT** | Scripts, automation | `deployment-queue-cli login --org my-org --pat ghp_xxx` |
+
+### Device Flow
 
 ```bash
-deployment-queue-cli login --org your-org
-```
+$ deployment-queue-cli login --org my-company
 
-This opens a browser for GitHub authentication.
+To authenticate, visit: https://github.com/login/device
+   Enter code: ABCD-1234
+
+Waiting for authorization... Done
+
+Logged in as jsmith (my-company)
+```
 
 ### Personal Access Token
 
 ```bash
-deployment-queue-cli login --org your-org --pat ghp_xxxxxxxxxxxx
+$ deployment-queue-cli login --org my-company --pat ghp_xxxxxxxxxxxx
+Logged in as jsmith (my-company)
 ```
 
 PAT requires `read:org` and `read:user` scopes.
 
-## Commands
+## Usage Examples
 
-### Authentication Commands
-
-#### Check auth status
+### List Deployments
 
 ```bash
-deployment-queue-cli whoami
-```
-
-#### Login
-
-```bash
-# Device flow (recommended)
-deployment-queue-cli login --org your-org
-
-# With Personal Access Token
-deployment-queue-cli login --org your-org --pat ghp_xxxxxxxxxxxx
-```
-
-#### Logout
-
-```bash
-deployment-queue-cli logout
-```
-
-#### List available organisations
-
-```bash
-deployment-queue-cli list-orgs
-```
-
-#### Switch organisation
-
-```bash
-deployment-queue-cli switch-org other-org
-```
-
-### Deployment Commands
-
-#### List deployments
-
-```bash
+# List all deployments
 deployment-queue-cli list
+
+# Filter by environment and status
 deployment-queue-cli list --env production --status deployed
-deployment-queue-cli list --provider gcp --trigger auto --limit 50
+
+# Filter by provider
+deployment-queue-cli list --provider gcp --limit 50
 ```
 
-Options:
-- `--env, -e`: Filter by environment
-- `--status, -s`: Filter by status
-- `--provider, -p`: Filter by provider
-- `--trigger, -t`: Filter by trigger
-- `--limit, -n`: Max results (default: 20)
-- `--api-url`: Override API URL
-
-#### Get deployment details
+### Component Operations
 
 ```bash
-deployment-queue-cli get <deployment-id>
-```
-
-Options:
-- `--api-url`: Override API URL
-
-#### Get current deployment
-
-```bash
+# Get current deployment
 deployment-queue-cli current my-service \
   --env production \
   --provider gcp \
-  --account my-project-id \
+  --account my-project \
   --region europe-west1
-```
 
-Options:
-- `--env, -e`: Environment (required)
-- `--provider, -p`: Provider - gcp/aws/azure (required)
-- `--account, -a`: Cloud account ID (required)
-- `--region, -r`: Region (required)
-- `--cell`: Cell ID (optional)
-- `--api-url`: Override API URL
-
-#### View deployment history
-
-```bash
+# View history
 deployment-queue-cli history my-service \
   --env production \
   --provider gcp \
-  --account my-project-id \
-  --region europe-west1 \
-  --limit 20
-```
+  --account my-project \
+  --region europe-west1
 
-Options:
-- `--env, -e`: Environment (required)
-- `--provider, -p`: Provider (required)
-- `--account, -a`: Cloud account ID (required)
-- `--region, -r`: Region (required)
-- `--cell`: Cell ID (optional)
-- `--limit, -n`: Max results (default: 10)
-- `--api-url`: Override API URL
-
-#### Update deployment status
-
-```bash
+# Update status
 deployment-queue-cli update-status my-service deployed \
   --env production \
   --provider gcp \
-  --account my-project-id \
-  --region europe-west1 \
-  --notes "Deployment completed successfully"
-```
-
-Valid statuses: `scheduled`, `in_progress`, `deployed`, `failed`, `skipped`
-
-Options:
-- `--env, -e`: Environment (required)
-- `--provider, -p`: Provider (required)
-- `--account, -a`: Cloud account ID (required)
-- `--region, -r`: Region (required)
-- `--cell`: Cell ID (optional)
-- `--notes`: Notes for the status update (optional)
-- `--api-url`: Override API URL
-
-#### Rollback deployment
-
-```bash
-# Rollback to previous version
-deployment-queue-cli rollback my-service \
-  --env production \
-  --provider gcp \
-  --account my-project-id \
+  --account my-project \
   --region europe-west1
 
-# Rollback to specific version
+# Rollback
 deployment-queue-cli rollback my-service \
   --env production \
   --provider gcp \
-  --account my-project-id \
-  --region europe-west1 \
-  --version v1.2.0
+  --account my-project \
+  --region europe-west1
 ```
 
-Options:
-- `--env, -e`: Environment (required)
-- `--provider, -p`: Provider (required)
-- `--account, -a`: Cloud account ID (required)
-- `--region, -r`: Region (required)
-- `--cell`: Cell ID (optional)
-- `--version, -v`: Target version (default: previous)
-- `--api-url`: Override API URL
+## Development
+
+| Command | Description |
+|---------|-------------|
+| `make init` | Set up virtual environment and install dependencies |
+| `make lint` | Run ruff and mypy |
+| `make format` | Format code with ruff |
+| `make test` | Run tests with coverage |
+| `make security` | Run bandit security scan |
+| `make build` | Full build: lint, test, security, package |
+
+## Project Structure
+
+```
+deployment-queue-cli/
+├── src/deployment_queue_cli/
+│   ├── main.py           # Typer CLI app and commands
+│   ├── client.py         # Async API client (httpx)
+│   ├── auth.py           # GitHub authentication
+│   └── config.py         # Settings via pydantic-settings
+├── tests/                # Test suite
+└── docs/                 # Documentation
+```
 
 ## GitHub OAuth App Setup
 
-To enable Device Flow authentication, create a GitHub OAuth App:
+To enable Device Flow authentication:
 
-1. Go to GitHub Settings -> Developer settings -> OAuth Apps -> New OAuth App
-2. Fill in:
-   - Application name: `Deployment Queue CLI`
-   - Homepage URL: Your documentation URL
-   - Authorization callback URL: `https://github.com` (not used for device flow)
-3. After creation, note the **Client ID** (this is public, not a secret)
-4. Enable Device Flow: Check "Enable Device Flow" in the app settings
-5. Set `DEPLOYMENT_QUEUE_CLI_GITHUB_CLIENT_ID` environment variable
+1. Go to GitHub Settings → Developer settings → OAuth Apps → New OAuth App
+2. Set application name and homepage URL
+3. Enable "Device Flow" in the app settings
+4. Set `DEPLOYMENT_QUEUE_CLI_GITHUB_CLIENT_ID` to the Client ID
 
-No client secret is needed for device flow - only the public client ID.
-
-## License
-
-MIT
+No client secret is needed for Device Flow.
