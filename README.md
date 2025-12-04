@@ -56,6 +56,8 @@ deployment-queue-cli login --org my-organisation
 | `list-orgs` | List available organisations |
 | `create` | Create a new deployment |
 | `list` | List deployments with filters |
+| `release` | Release a deployment (set to in_progress) |
+| `update-status` | Update deployment status |
 | `rollback` | Create rollback deployment |
 
 ## Authentication
@@ -119,6 +121,26 @@ deployment-queue-cli list --status deployed
 
 # Filter by provider
 deployment-queue-cli list --provider gcp --limit 50
+```
+
+### Release Deployment
+
+```bash
+# Release a deployment (interactive confirmation)
+deployment-queue-cli release ca58b04e-1530-40be-a84c-2c3541468424
+
+# Skip confirmation prompt
+deployment-queue-cli release ca58b04e-1530-40be-a84c-2c3541468424 --yes
+```
+
+### Update Deployment Status
+
+```bash
+# Set deployment to deployed
+deployment-queue-cli update-status ca58b04e-1530-40be-a84c-2c3541468424 deployed
+
+# Set deployment to failed
+deployment-queue-cli update-status ca58b04e-1530-40be-a84c-2c3541468424 failed
 ```
 
 ### Rollback

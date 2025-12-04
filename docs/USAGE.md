@@ -139,6 +139,8 @@ deployment-queue-cli logout
 |---------|-------------|
 | `create` | Create a new deployment |
 | `list` | List deployments with filters |
+| `release` | Release a deployment (set to in_progress) |
+| `update-status` | Update deployment status |
 | `rollback` | Create rollback deployment |
 
 ### Command Details
@@ -225,6 +227,36 @@ deployment-queue-cli list [OPTIONS]
 | `--provider` | `-p` | | Filter by provider (gcp/aws/azure) |
 | `--trigger` | `-t` | | Filter by trigger (auto/manual/rollback) |
 | `--limit` | `-n` | 20 | Maximum results |
+| `--api-url` | | | Override API URL |
+
+#### release
+
+Release a deployment (set status to in_progress).
+
+```bash
+deployment-queue-cli release <deployment-id> [OPTIONS]
+```
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--yes` | `-y` | false | Skip confirmation prompt |
+| `--api-url` | | | Override API URL |
+
+#### update-status
+
+Update deployment status.
+
+```bash
+deployment-queue-cli update-status <deployment-id> <status>
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `deployment-id` | Yes | Deployment ID |
+| `status` | Yes | New status (scheduled/in_progress/deployed/failed/skipped) |
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
 | `--api-url` | | | Override API URL |
 
 #### rollback
@@ -354,6 +386,63 @@ deployment-queue-cli list --provider gcp --trigger rollback
 
 # List last 50 scheduled deployments
 deployment-queue-cli list --status scheduled --limit 50
+```
+
+### Releasing Deployments
+
+#### Release with Confirmation
+
+```bash
+$ deployment-queue-cli release ca58b04e-1530-40be-a84c-2c3541468424
+==================================================
+Deployment Details
+==================================================
+Deployment ID         : ca58b04e-1530-40be-a84c-2c3541468424
+Provider              : gcp
+Region                : europe-west2
+Cloud Account ID      : my-project-123
+Cell                  : 01
+Type                  : k8s
+Name                  : user-service
+Version               : v2.1.0
+Description           : Feature release
+Status                : scheduled
+Commit SHA            : 3a7622e74e19d9c16d8ad7af6c4b28f32ffee7d3
+Pipeline Extra Params : {"chart_version": "0.28.0"}
+==================================================
+Do you want to continue? [y/n]: y
+
+Deployment released: user-service @ v2.1.0
+  Status: in_progress
+```
+
+#### Release without Confirmation
+
+```bash
+$ deployment-queue-cli release ca58b04e-1530-40be-a84c-2c3541468424 --yes
+
+Deployment released: user-service @ v2.1.0
+  Status: in_progress
+```
+
+### Updating Deployment Status
+
+#### Mark Deployment as Deployed
+
+```bash
+$ deployment-queue-cli update-status ca58b04e-1530-40be-a84c-2c3541468424 deployed
+
+Updated deployment: user-service @ v2.1.0
+  Status: deployed
+```
+
+#### Mark Deployment as Failed
+
+```bash
+$ deployment-queue-cli update-status ca58b04e-1530-40be-a84c-2c3541468424 failed
+
+Updated deployment: user-service @ v2.1.0
+  Status: failed
 ```
 
 ### Rollback Operations

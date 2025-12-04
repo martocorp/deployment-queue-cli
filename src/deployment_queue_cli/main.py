@@ -305,6 +305,98 @@ def rollback(
     console.print(f"  Rollback from: {d.get('rollback_from_deployment_id', 'N/A')}")
 
 
+@app.command()
+def release(
+    deployment_id: str = typer.Argument(..., help="Deployment ID"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
+    api_url: Optional[str] = typer.Option(None, "--api-url"),
+) -> None:
+    """Release a deployment (set status to in_progress)."""
+    client = get_client(api_url)
+
+    async def _get() -> Optional[dict]:
+        return await client.get_deployment(deployment_id)
+
+    async def _release() -> dict:
+        return await client.update_deployment(deployment_id, {"status": "in_progress"})
+
+    try:
+        d = asyncio.run(_get())
+    except DeploymentAPIError as e:
+        handle_api_error(e)
+
+    if not d:
+        console.print(f"[red]Deployment not found: {deployment_id}[/red]")
+        raise typer.Exit(1)
+
+    # Display deployment details
+    console.print("=" * 50)
+    console.print("[bold]Deployment Details[/bold]")
+    console.print("=" * 50)
+    console.print(f"[bold]Deployment ID[/bold]         : {d['id']}")
+    console.print(f"[bold]Provider[/bold]              : {d.get('provider', 'N/A')}")
+    console.print(f"[bold]Region[/bold]                : {d.get('region', 'N/A')}")
+    console.print(f"[bold]Cloud Account ID[/bold]      : {d.get('cloud_account_id', 'N/A')}")
+    console.print(f"[bold]Cell[/bold]                  : {d.get('cell', 'N/A') or 'N/A'}")
+    console.print(f"[bold]Type[/bold]                  : {d.get('type', 'N/A')}")
+    console.print(f"[bold]Name[/bold]                  : {d['name']}")
+    console.print(f"[bold]Version[/bold]               : {d['version']}")
+    console.print(f"[bold]Description[/bold]           : {d.get('description', 'N/A') or 'N/A'}")
+    console.print(f"[bold]Status[/bold]                : {d['status']}")
+    console.print(f"[bold]Commit SHA[/bold]            : {d.get('commit_sha', 'N/A') or 'N/A'}")
+    pipeline_params = d.get('pipeline_extra_params', 'N/A') or 'N/A'
+    console.print(f"[bold]Pipeline Extra Params[/bold] : {pipeline_params}")
+    console.print("=" * 50)
+
+    if d["status"] != "scheduled":
+        console.print(
+            f"[yellow]Warning: Deployment status is '{d['status']}', expected 'scheduled'[/yellow]"
+        )
+
+    if not yes:
+        confirm = typer.confirm("Do you want to continue?")
+        if not confirm:
+            console.print("[yellow]Aborted[/yellow]")
+            raise typer.Exit(0)
+
+    try:
+        updated = asyncio.run(_release())
+    except DeploymentAPIError as e:
+        handle_api_error(e)
+
+    console.print(f"[green]Deployment released: {updated['name']} @ {updated['version']}[/green]")
+    console.print(f"  Status: {updated['status']}")
+
+
+@app.command("update-status")
+def update_status(
+    deployment_id: str = typer.Argument(..., help="Deployment ID"),
+    status: str = typer.Argument(
+        ..., help="New status (scheduled/in_progress/deployed/failed/skipped)"
+    ),
+    api_url: Optional[str] = typer.Option(None, "--api-url"),
+) -> None:
+    """Update deployment status."""
+    valid_statuses = ["scheduled", "in_progress", "deployed", "failed", "skipped"]
+    if status not in valid_statuses:
+        console.print(f"[red]Invalid status: {status}[/red]")
+        console.print(f"[yellow]Valid statuses: {', '.join(valid_statuses)}[/yellow]")
+        raise typer.Exit(1)
+
+    client = get_client(api_url)
+
+    async def _update() -> dict:
+        return await client.update_deployment(deployment_id, {"status": status})
+
+    try:
+        d = asyncio.run(_update())
+    except DeploymentAPIError as e:
+        handle_api_error(e)
+
+    console.print(f"[green]Updated deployment: {d['name']} @ {d['version']}[/green]")
+    console.print(f"  Status: {d['status']}")
+
+
 def main() -> None:
     """Main entry point for the CLI."""
     app()

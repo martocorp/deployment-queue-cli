@@ -424,3 +424,255 @@ class TestRollbackCommand:
             call_kwargs = mock_client.rollback.call_args
             assert call_kwargs[0][4] is None  # cell
             assert call_kwargs[0][5] == "v0.9.0"  # target_version
+
+
+class TestReleaseCommand:
+    """Tests for the release command."""
+
+    def test_release_success(
+        self, mock_credentials: Credentials, mock_deployment: dict
+    ) -> None:
+        """Release deployment with confirmation."""
+        scheduled_deployment = {**mock_deployment, "status": "scheduled"}
+        released_deployment = {**mock_deployment, "status": "in_progress"}
+
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=scheduled_deployment)
+            mock_client.update_deployment = AsyncMock(return_value=released_deployment)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["release", "test-deployment-uuid", "--yes"],
+            )
+
+            assert result.exit_code == 0
+            assert "Deployment Details" in result.output
+            assert "Deployment released" in result.output
+            mock_client.update_deployment.assert_called_once_with(
+                "test-deployment-uuid", {"status": "in_progress"}
+            )
+
+    def test_release_deployment_not_found(
+        self, mock_credentials: Credentials
+    ) -> None:
+        """Release fails when deployment not found."""
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["release", "nonexistent-id", "--yes"],
+            )
+
+            assert result.exit_code == 1
+            assert "not found" in result.output
+
+    def test_release_aborted(
+        self, mock_credentials: Credentials, mock_deployment: dict
+    ) -> None:
+        """Release aborted when user declines confirmation."""
+        scheduled_deployment = {**mock_deployment, "status": "scheduled"}
+
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=scheduled_deployment)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["release", "test-deployment-uuid"],
+                input="n\n",
+            )
+
+            assert result.exit_code == 0
+            assert "Aborted" in result.output
+            mock_client.update_deployment.assert_not_called()
+
+    def test_release_not_authenticated(self) -> None:
+        """Release fails when not authenticated."""
+        with patch(
+            "deployment_queue_cli.main.get_stored_credentials",
+            return_value=None,
+        ):
+            result = runner.invoke(
+                app,
+                ["release", "test-deployment-uuid", "--yes"],
+            )
+
+            assert result.exit_code == 1
+            assert "Not authenticated" in result.output
+
+    def test_release_shows_warning_for_non_scheduled(
+        self, mock_credentials: Credentials, mock_deployment: dict
+    ) -> None:
+        """Release shows warning when deployment is not scheduled."""
+        deployed_deployment = {**mock_deployment, "status": "deployed"}
+        released_deployment = {**mock_deployment, "status": "in_progress"}
+
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=deployed_deployment)
+            mock_client.update_deployment = AsyncMock(return_value=released_deployment)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["release", "test-deployment-uuid", "--yes"],
+            )
+
+            assert result.exit_code == 0
+            assert "Warning" in result.output
+            assert "deployed" in result.output
+
+
+class TestUpdateStatusCommand:
+    """Tests for the update-status command."""
+
+    def test_update_status_success(
+        self, mock_credentials: Credentials, mock_deployment: dict
+    ) -> None:
+        """Update status changes deployment status."""
+        updated_deployment = {**mock_deployment, "status": "deployed"}
+
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.update_deployment = AsyncMock(return_value=updated_deployment)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["update-status", "test-deployment-uuid", "deployed"],
+            )
+
+            assert result.exit_code == 0
+            assert "Updated deployment" in result.output
+            assert "deployed" in result.output
+            mock_client.update_deployment.assert_called_once_with(
+                "test-deployment-uuid", {"status": "deployed"}
+            )
+
+    def test_update_status_invalid_status(self) -> None:
+        """Update status fails with invalid status."""
+        result = runner.invoke(
+            app,
+            ["update-status", "test-deployment-uuid", "invalid_status"],
+        )
+
+        assert result.exit_code == 1
+        assert "Invalid status" in result.output
+        assert "Valid statuses" in result.output
+
+    def test_update_status_not_authenticated(self) -> None:
+        """Update status fails when not authenticated."""
+        with patch(
+            "deployment_queue_cli.main.get_stored_credentials",
+            return_value=None,
+        ):
+            result = runner.invoke(
+                app,
+                ["update-status", "test-deployment-uuid", "deployed"],
+            )
+
+            assert result.exit_code == 1
+            assert "Not authenticated" in result.output
+
+    def test_update_status_api_error(
+        self, mock_credentials: Credentials
+    ) -> None:
+        """Update status handles API errors."""
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.update_deployment = AsyncMock(
+                side_effect=DeploymentAPIError(404, "Deployment not found")
+            )
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["update-status", "nonexistent-id", "deployed"],
+            )
+
+            assert result.exit_code == 1
+            assert "404" in result.output or "not found" in result.output.lower()
+
+    def test_update_status_all_valid_statuses(
+        self, mock_credentials: Credentials, mock_deployment: dict
+    ) -> None:
+        """Update status accepts all valid status values."""
+        valid_statuses = ["scheduled", "in_progress", "deployed", "failed", "skipped"]
+
+        for status in valid_statuses:
+            updated_deployment = {**mock_deployment, "status": status}
+
+            with (
+                patch(
+                    "deployment_queue_cli.main.get_stored_credentials",
+                    return_value=mock_credentials,
+                ),
+                patch(
+                    "deployment_queue_cli.main.DeploymentAPIClient"
+                ) as mock_client_class,
+            ):
+                mock_client = MagicMock()
+                mock_client.update_deployment = AsyncMock(return_value=updated_deployment)
+                mock_client_class.return_value = mock_client
+
+                result = runner.invoke(
+                    app,
+                    ["update-status", "test-deployment-uuid", status],
+                )
+
+                assert result.exit_code == 0, f"Failed for status: {status}"
+                assert status in result.output

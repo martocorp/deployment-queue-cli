@@ -85,6 +85,14 @@ class DeploymentAPIClient:
             )
             return self._handle_response(response)
 
+    async def get_deployment(self, deployment_id: str) -> Optional[dict]:
+        """Get deployment by ID using list endpoint."""
+        deployments = await self.list_deployments(limit=1000)
+        for d in deployments:
+            if d["id"] == deployment_id:
+                return d
+        return None
+
     async def update_deployment(self, deployment_id: str, update: dict) -> dict:
         """Update deployment by ID."""
         async with httpx.AsyncClient(timeout=30.0) as client:

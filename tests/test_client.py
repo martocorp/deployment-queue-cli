@@ -139,6 +139,54 @@ class TestDeploymentAPIClientMethods:
             assert call_kwargs["json"] == deployment_data
 
     @pytest.mark.asyncio
+    async def test_get_deployment(
+        self, client: DeploymentAPIClient, mock_deployment: dict
+    ) -> None:
+        """Get deployment by ID returns deployment."""
+        with patch.object(
+            client, "list_deployments", new_callable=AsyncMock
+        ) as mock_list:
+            mock_list.return_value = [mock_deployment]
+
+            result = await client.get_deployment("test-deployment-uuid")
+
+            assert result is not None
+            assert result["id"] == "test-deployment-uuid"
+            mock_list.assert_called_once_with(limit=1000)
+
+    @pytest.mark.asyncio
+    async def test_get_deployment_not_found(self, client: DeploymentAPIClient) -> None:
+        """Get deployment returns None when not found."""
+        with patch.object(
+            client, "list_deployments", new_callable=AsyncMock
+        ) as mock_list:
+            mock_list.return_value = []
+
+            result = await client.get_deployment("nonexistent-id")
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_deployment(
+        self, client: DeploymentAPIClient, mock_deployment: dict
+    ) -> None:
+        """Update deployment sends PATCH request."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {**mock_deployment, "status": "in_progress"}
+
+        with patch("httpx.AsyncClient.patch", new_callable=AsyncMock) as mock_patch:
+            mock_patch.return_value = mock_response
+
+            result = await client.update_deployment(
+                "test-deployment-uuid", {"status": "in_progress"}
+            )
+
+            assert result["status"] == "in_progress"
+            call_kwargs = mock_patch.call_args.kwargs
+            assert call_kwargs["json"] == {"status": "in_progress"}
+
+    @pytest.mark.asyncio
     async def test_rollback(self, client: DeploymentAPIClient, mock_deployment: dict) -> None:
         """Rollback creates rollback deployment."""
         rollback_deployment = {
