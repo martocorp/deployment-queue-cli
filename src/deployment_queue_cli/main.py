@@ -170,6 +170,9 @@ def create(
     notes: Optional[str] = typer.Option(None, "--notes", help="Deployment notes"),
     commit_sha: Optional[str] = typer.Option(None, "--commit", help="Git commit SHA"),
     build_uri: Optional[str] = typer.Option(None, "--build-uri", help="Build URI"),
+    pipeline_extra_params: Optional[str] = typer.Option(
+        None, "--pipeline-params", help="Pipeline extra params (JSON string)"
+    ),
     api_url: Optional[str] = typer.Option(None, "--api-url"),
 ) -> None:
     """Create a new deployment."""
@@ -197,6 +200,8 @@ def create(
         deployment["commit_sha"] = commit_sha
     if build_uri:
         deployment["build_uri"] = build_uri
+    if pipeline_extra_params:
+        deployment["pipeline_extra_params"] = pipeline_extra_params
 
     async def _create() -> dict:
         return await client.create_deployment(deployment)

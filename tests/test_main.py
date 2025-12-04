@@ -111,6 +111,8 @@ class TestCreateCommand:
                     "abc123",
                     "--build-uri",
                     "https://ci.example.com/123",
+                    "--pipeline-params",
+                    '{"key": "value", "count": 42}',
                 ],
             )
 
@@ -125,6 +127,7 @@ class TestCreateCommand:
             assert call_args["description"] == "Test deployment"
             assert call_args["notes"] == "Some notes"
             assert call_args["commit_sha"] == "abc123"
+            assert call_args["pipeline_extra_params"] == '{"key": "value", "count": 42}'
             assert call_args["build_uri"] == "https://ci.example.com/123"
 
     def test_create_deployment_not_authenticated(self) -> None:
