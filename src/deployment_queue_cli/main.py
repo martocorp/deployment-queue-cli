@@ -149,6 +149,69 @@ def list_orgs() -> None:
 # -----------------------------------------------------------------------------
 
 
+@app.command()
+def create(
+    name: str = typer.Argument(..., help="Component name"),
+    version: str = typer.Argument(..., help="Version to deploy"),
+    deployment_type: str = typer.Option(
+        ..., "--type", "-T", help="Deployment type (k8s/terraform/data_pipeline)"
+    ),
+    environment: str = typer.Option(..., "--env", "-e", help="Environment"),
+    provider: str = typer.Option(..., "--provider", "-p", help="Provider (gcp/aws/azure)"),
+    cloud_account_id: Optional[str] = typer.Option(
+        None, "--account", "-a", help="Cloud account ID"
+    ),
+    region: Optional[str] = typer.Option(None, "--region", "-r", help="Region"),
+    cell_id: Optional[str] = typer.Option(None, "--cell", help="Cell ID"),
+    auto: bool = typer.Option(True, "--auto/--no-auto", help="Auto-deploy when ready"),
+    description: Optional[str] = typer.Option(
+        None, "--description", "-d", help="Deployment description"
+    ),
+    notes: Optional[str] = typer.Option(None, "--notes", help="Deployment notes"),
+    commit_sha: Optional[str] = typer.Option(None, "--commit", help="Git commit SHA"),
+    build_uri: Optional[str] = typer.Option(None, "--build-uri", help="Build URI"),
+    api_url: Optional[str] = typer.Option(None, "--api-url"),
+) -> None:
+    """Create a new deployment."""
+    client = get_client(api_url)
+
+    deployment: dict = {
+        "name": name,
+        "version": version,
+        "type": deployment_type,
+        "environment": environment,
+        "provider": provider,
+        "auto": auto,
+    }
+    if cloud_account_id:
+        deployment["cloud_account_id"] = cloud_account_id
+    if region:
+        deployment["region"] = region
+    if cell_id:
+        deployment["cell"] = cell_id
+    if description:
+        deployment["description"] = description
+    if notes:
+        deployment["notes"] = notes
+    if commit_sha:
+        deployment["commit_sha"] = commit_sha
+    if build_uri:
+        deployment["build_uri"] = build_uri
+
+    async def _create() -> dict:
+        return await client.create_deployment(deployment)
+
+    try:
+        d = asyncio.run(_create())
+    except DeploymentAPIError as e:
+        handle_api_error(e)
+
+    console.print(f"[green]Created deployment: {d['name']} @ {d['version']}[/green]")
+    console.print(f"  ID: {d['id']}")
+    console.print(f"  Status: {d['status']}")
+    console.print(f"  Environment: {d['environment']}")
+
+
 @app.command("list")
 def list_deployments(
     environment: Optional[str] = typer.Option(None, "--env", "-e", help="Filter by environment"),
@@ -174,12 +237,15 @@ def list_deployments(
         return
 
     table = Table(title="Deployments", box=box.ROUNDED)
+    table.add_column("ID")
     table.add_column("Name", style="bold")
     table.add_column("Version")
-    table.add_column("Environment")
     table.add_column("Status")
-    table.add_column("Trigger")
     table.add_column("Created")
+    table.add_column("Provider")
+    table.add_column("Account")
+    table.add_column("Region")
+    table.add_column("Cell")
 
     status_styles = {
         "deployed": "green",
@@ -190,15 +256,18 @@ def list_deployments(
     }
 
     for d in deployments:
-        style = status_styles.get(d["status"], "white")
-        version = d["version"]
+        status = d.get("status", "")
+        style = status_styles.get(status, "white")
         table.add_row(
+            d["id"],
             d["name"],
-            version[:12] + ("..." if len(version) > 12 else ""),
-            d["environment"],
-            f"[{style}]{d['status']}[/{style}]",
-            d["trigger"],
+            d["version"],
+            f"[{style}]{status}[/{style}]",
             d["created_at"][:19].replace("T", " "),
+            d.get("provider", ""),
+            d.get("cloud_account_id", ""),
+            d.get("region", ""),
+            d.get("cell", "") or d.get("cell_id", ""),
         )
 
     console.print(table)
