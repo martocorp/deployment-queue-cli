@@ -97,7 +97,6 @@ PAT requires `read:org` and `read:user` scopes.
 # Create a Kubernetes deployment
 deployment-queue-cli create my-service v1.2.3 \
   --type k8s \
-  --env production \
   --provider gcp \
   --account my-project \
   --region europe-west1
@@ -105,7 +104,6 @@ deployment-queue-cli create my-service v1.2.3 \
 # Create with pipeline params
 deployment-queue-cli create my-service v1.2.3 \
   --type k8s \
-  --env production \
   --provider gcp \
   --pipeline-params '{"replicas": 3}'
 ```
@@ -116,8 +114,8 @@ deployment-queue-cli create my-service v1.2.3 \
 # List all deployments
 deployment-queue-cli list
 
-# Filter by environment and status
-deployment-queue-cli list --env production --status deployed
+# Filter by status
+deployment-queue-cli list --status deployed
 
 # Filter by provider
 deployment-queue-cli list --provider gcp --limit 50
@@ -128,14 +126,12 @@ deployment-queue-cli list --provider gcp --limit 50
 ```bash
 # Rollback to previous version
 deployment-queue-cli rollback my-service \
-  --env production \
   --provider gcp \
   --account my-project \
   --region europe-west1
 
 # Rollback to specific version
 deployment-queue-cli rollback my-service \
-  --env production \
   --provider gcp \
   --account my-project \
   --region europe-west1 \

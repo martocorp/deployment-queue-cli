@@ -47,8 +47,6 @@ class TestCreateCommand:
                     "v1.0.0",
                     "--type",
                     "k8s",
-                    "--env",
-                    "production",
                     "--provider",
                     "gcp",
                 ],
@@ -63,7 +61,6 @@ class TestCreateCommand:
             assert call_args["name"] == "my-service"
             assert call_args["version"] == "v1.0.0"
             assert call_args["type"] == "k8s"
-            assert call_args["environment"] == "production"
             assert call_args["provider"] == "gcp"
             assert call_args["auto"] is True
 
@@ -92,8 +89,6 @@ class TestCreateCommand:
                     "v1.0.0",
                     "--type",
                     "terraform",
-                    "--env",
-                    "staging",
                     "--provider",
                     "aws",
                     "--account",
@@ -144,8 +139,6 @@ class TestCreateCommand:
                     "v1.0.0",
                     "--type",
                     "k8s",
-                    "--env",
-                    "production",
                     "--provider",
                     "gcp",
                 ],
@@ -181,8 +174,6 @@ class TestCreateCommand:
                     "v1.0.0",
                     "--type",
                     "k8s",
-                    "--env",
-                    "production",
                     "--provider",
                     "gcp",
                 ],
@@ -258,8 +249,6 @@ class TestListCommand:
                 app,
                 [
                     "list",
-                    "--env",
-                    "production",
                     "--status",
                     "deployed",
                     "--provider",
@@ -271,7 +260,7 @@ class TestListCommand:
 
             assert result.exit_code == 0
             mock_client.list_deployments.assert_called_once_with(
-                "production", "deployed", "gcp", None, 50
+                "deployed", "gcp", None, 50
             )
 
     def test_list_deployments_empty(
@@ -383,8 +372,6 @@ class TestRollbackCommand:
                 [
                     "rollback",
                     "test-service",
-                    "--env",
-                    "production",
                     "--provider",
                     "gcp",
                     "--account",
@@ -420,8 +407,6 @@ class TestRollbackCommand:
                 [
                     "rollback",
                     "test-service",
-                    "--env",
-                    "production",
                     "--provider",
                     "gcp",
                     "--account",
@@ -437,5 +422,5 @@ class TestRollbackCommand:
             mock_client.rollback.assert_called_once()
             # Check that target_version was passed
             call_kwargs = mock_client.rollback.call_args
-            assert call_kwargs[0][5] is None  # cell_id
-            assert call_kwargs[0][6] == "v0.9.0"  # target_version
+            assert call_kwargs[0][4] is None  # cell
+            assert call_kwargs[0][5] == "v0.9.0"  # target_version

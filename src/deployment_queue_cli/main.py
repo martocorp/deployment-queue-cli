@@ -156,7 +156,6 @@ def create(
     deployment_type: str = typer.Option(
         ..., "--type", "-T", help="Deployment type (k8s/terraform/data_pipeline)"
     ),
-    environment: str = typer.Option(..., "--env", "-e", help="Environment"),
     provider: str = typer.Option(..., "--provider", "-p", help="Provider (gcp/aws/azure)"),
     cloud_account_id: Optional[str] = typer.Option(
         None, "--account", "-a", help="Cloud account ID"
@@ -182,7 +181,6 @@ def create(
         "name": name,
         "version": version,
         "type": deployment_type,
-        "environment": environment,
         "provider": provider,
         "auto": auto,
     }
@@ -214,12 +212,10 @@ def create(
     console.print(f"[green]Created deployment: {d['name']} @ {d['version']}[/green]")
     console.print(f"  ID: {d['id']}")
     console.print(f"  Status: {d['status']}")
-    console.print(f"  Environment: {d['environment']}")
 
 
 @app.command("list")
 def list_deployments(
-    environment: Optional[str] = typer.Option(None, "--env", "-e", help="Filter by environment"),
     status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Filter by provider"),
     trigger: Optional[str] = typer.Option(None, "--trigger", "-t", help="Filter by trigger"),
@@ -230,7 +226,7 @@ def list_deployments(
     client = get_client(api_url)
 
     async def _list() -> list[dict]:
-        return await client.list_deployments(environment, status, provider, trigger, limit)
+        return await client.list_deployments(status, provider, trigger, limit)
 
     try:
         deployments = asyncio.run(_list())
@@ -281,7 +277,6 @@ def list_deployments(
 @app.command()
 def rollback(
     name: str = typer.Argument(..., help="Component name"),
-    environment: str = typer.Option(..., "--env", "-e"),
     provider: str = typer.Option(..., "--provider", "-p"),
     cloud_account_id: str = typer.Option(..., "--account", "-a"),
     region: str = typer.Option(..., "--region", "-r"),
@@ -296,7 +291,7 @@ def rollback(
 
     async def _rollback() -> dict:
         return await client.rollback(
-            name, environment, provider, cloud_account_id, region, cell, target_version
+            name, provider, cloud_account_id, region, cell, target_version
         )
 
     try:

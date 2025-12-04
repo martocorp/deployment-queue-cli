@@ -199,7 +199,6 @@ deployment-queue-cli create <name> <version> [OPTIONS]
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
 | `--type` | `-T` | Yes | | Deployment type (k8s/terraform/data_pipeline) |
-| `--env` | `-e` | Yes | | Environment |
 | `--provider` | `-p` | Yes | | Provider (gcp/aws/azure) |
 | `--account` | `-a` | No | | Cloud account ID |
 | `--region` | `-r` | No | | Cloud region |
@@ -222,7 +221,6 @@ deployment-queue-cli list [OPTIONS]
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--env` | `-e` | | Filter by environment |
 | `--status` | `-s` | | Filter by status |
 | `--provider` | `-p` | | Filter by provider (gcp/aws/azure) |
 | `--trigger` | `-t` | | Filter by trigger (auto/manual/rollback) |
@@ -239,7 +237,6 @@ deployment-queue-cli rollback <name> [OPTIONS]
 
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
-| `--env` | `-e` | Yes | | Environment |
 | `--provider` | `-p` | Yes | | Provider |
 | `--account` | `-a` | Yes | | Cloud account ID |
 | `--region` | `-r` | Yes | | Cloud region |
@@ -289,7 +286,6 @@ $ deployment-queue-cli whoami
 ```bash
 $ deployment-queue-cli create user-service v2.1.0 \
     --type k8s \
-    --env production \
     --provider gcp \
     --account my-project-123 \
     --region europe-west1
@@ -297,7 +293,6 @@ $ deployment-queue-cli create user-service v2.1.0 \
 Created deployment: user-service @ v2.1.0
   ID: abc123-def456-...
   Status: scheduled
-  Environment: production
 ```
 
 #### Create with All Options
@@ -305,7 +300,6 @@ Created deployment: user-service @ v2.1.0
 ```bash
 $ deployment-queue-cli create user-service v2.1.0 \
     --type k8s \
-    --env production \
     --provider gcp \
     --account my-project-123 \
     --region europe-west1 \
@@ -319,7 +313,6 @@ $ deployment-queue-cli create user-service v2.1.0 \
 Created deployment: user-service @ v2.1.0
   ID: abc123-def456-...
   Status: scheduled
-  Environment: production
 ```
 
 #### Create with Manual Approval Required
@@ -327,14 +320,12 @@ Created deployment: user-service @ v2.1.0
 ```bash
 $ deployment-queue-cli create user-service v2.1.0 \
     --type terraform \
-    --env production \
     --provider aws \
     --no-auto
 
 Created deployment: user-service @ v2.1.0
   ID: xyz789-...
   Status: scheduled
-  Environment: production
 ```
 
 ### Listing Deployments
@@ -355,8 +346,8 @@ $ deployment-queue-cli list
 #### List with Filters
 
 ```bash
-# List deployed production deployments
-deployment-queue-cli list --env production --status deployed
+# List deployed deployments
+deployment-queue-cli list --status deployed
 
 # List GCP deployments triggered by rollback
 deployment-queue-cli list --provider gcp --trigger rollback
@@ -371,7 +362,6 @@ deployment-queue-cli list --status scheduled --limit 50
 
 ```bash
 $ deployment-queue-cli rollback user-service \
-    --env production \
     --provider gcp \
     --account my-project-123 \
     --region europe-west1
@@ -386,7 +376,6 @@ Rollback created: user-service -> v2.0.8
 
 ```bash
 $ deployment-queue-cli rollback user-service \
-    --env production \
     --provider gcp \
     --account my-project-123 \
     --region europe-west1 \
@@ -413,5 +402,5 @@ $ deployment-queue-cli switch-org my-company-sandbox
 Switched to my-company-sandbox
 
 # View deployments in sandbox
-$ deployment-queue-cli list --env staging
+$ deployment-queue-cli list --status scheduled
 ```

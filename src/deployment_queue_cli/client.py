@@ -53,7 +53,6 @@ class DeploymentAPIClient:
 
     async def list_deployments(
         self,
-        environment: Optional[str] = None,
         status: Optional[str] = None,
         provider: Optional[str] = None,
         trigger: Optional[str] = None,
@@ -61,8 +60,6 @@ class DeploymentAPIClient:
     ) -> list[dict]:
         """List deployments with optional filters."""
         params: dict[str, str | int] = {"limit": limit}
-        if environment:
-            params["environment"] = environment
         if status:
             params["status"] = status
         if provider:
@@ -105,7 +102,6 @@ class DeploymentAPIClient:
     async def rollback(
         self,
         name: str,
-        environment: str,
         provider: str,
         cloud_account_id: str,
         region: str,
@@ -115,7 +111,6 @@ class DeploymentAPIClient:
         """Create rollback deployment."""
         params: dict[str, str] = {
             "name": name,
-            "environment": environment,
             "provider": provider,
             "cloud_account_id": cloud_account_id,
             "region": region,

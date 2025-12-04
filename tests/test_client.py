@@ -111,12 +111,12 @@ class TestDeploymentAPIClientMethods:
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
 
-            result = await client.list_deployments(environment="production", limit=10)
+            result = await client.list_deployments(status="deployed", limit=10)
 
             assert len(result) == 3
             mock_get.assert_called_once()
             call_kwargs = mock_get.call_args.kwargs
-            assert call_kwargs["params"]["environment"] == "production"
+            assert call_kwargs["params"]["status"] == "deployed"
             assert call_kwargs["params"]["limit"] == 10
 
     @pytest.mark.asyncio
@@ -156,7 +156,6 @@ class TestDeploymentAPIClientMethods:
 
             result = await client.rollback(
                 name="test-service",
-                environment="production",
                 provider="gcp",
                 cloud_account_id="project-123",
                 region="us-central1",
