@@ -54,11 +54,8 @@ deployment-queue-cli login --org my-organisation
 | `whoami` | Show current session info |
 | `switch-org` | Switch to different organisation |
 | `list-orgs` | List available organisations |
+| `create` | Create a new deployment |
 | `list` | List deployments with filters |
-| `get` | Get deployment details by ID |
-| `current` | Get current deployment for a component |
-| `history` | Show deployment history for a component |
-| `update-status` | Update deployment status |
 | `rollback` | Create rollback deployment |
 
 ## Authentication
@@ -94,6 +91,25 @@ PAT requires `read:org` and `read:user` scopes.
 
 ## Usage Examples
 
+### Create Deployments
+
+```bash
+# Create a Kubernetes deployment
+deployment-queue-cli create my-service v1.2.3 \
+  --type k8s \
+  --env production \
+  --provider gcp \
+  --account my-project \
+  --region europe-west1
+
+# Create with pipeline params
+deployment-queue-cli create my-service v1.2.3 \
+  --type k8s \
+  --env production \
+  --provider gcp \
+  --pipeline-params '{"replicas": 3}'
+```
+
 ### List Deployments
 
 ```bash
@@ -107,36 +123,23 @@ deployment-queue-cli list --env production --status deployed
 deployment-queue-cli list --provider gcp --limit 50
 ```
 
-### Component Operations
+### Rollback
 
 ```bash
-# Get current deployment
-deployment-queue-cli current my-service \
-  --env production \
-  --provider gcp \
-  --account my-project \
-  --region europe-west1
-
-# View history
-deployment-queue-cli history my-service \
-  --env production \
-  --provider gcp \
-  --account my-project \
-  --region europe-west1
-
-# Update status
-deployment-queue-cli update-status my-service deployed \
-  --env production \
-  --provider gcp \
-  --account my-project \
-  --region europe-west1
-
-# Rollback
+# Rollback to previous version
 deployment-queue-cli rollback my-service \
   --env production \
   --provider gcp \
   --account my-project \
   --region europe-west1
+
+# Rollback to specific version
+deployment-queue-cli rollback my-service \
+  --env production \
+  --provider gcp \
+  --account my-project \
+  --region europe-west1 \
+  --version v1.0.0
 ```
 
 ## Development

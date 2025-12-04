@@ -137,11 +137,8 @@ deployment-queue-cli logout
 
 | Command | Description |
 |---------|-------------|
+| `create` | Create a new deployment |
 | `list` | List deployments with filters |
-| `get` | Get deployment details by ID |
-| `current` | Get current deployment for a component |
-| `history` | Show deployment history for a component |
-| `update-status` | Update deployment status |
 | `rollback` | Create rollback deployment |
 
 ### Command Details
@@ -191,6 +188,30 @@ List all organisations available to the authenticated user.
 deployment-queue-cli list-orgs
 ```
 
+#### create
+
+Create a new deployment.
+
+```bash
+deployment-queue-cli create <name> <version> [OPTIONS]
+```
+
+| Option | Short | Required | Default | Description |
+|--------|-------|----------|---------|-------------|
+| `--type` | `-T` | Yes | | Deployment type (k8s/terraform/data_pipeline) |
+| `--env` | `-e` | Yes | | Environment |
+| `--provider` | `-p` | Yes | | Provider (gcp/aws/azure) |
+| `--account` | `-a` | No | | Cloud account ID |
+| `--region` | `-r` | No | | Cloud region |
+| `--cell` | | No | | Cell ID |
+| `--auto/--no-auto` | | No | `--auto` | Auto-deploy when ready |
+| `--description` | `-d` | No | | Deployment description |
+| `--notes` | | No | | Deployment notes |
+| `--commit` | | No | | Git commit SHA |
+| `--build-uri` | | No | | Build URI |
+| `--pipeline-params` | | No | | Pipeline extra params (JSON string) |
+| `--api-url` | | No | | Override API URL |
+
 #### list
 
 List deployments with optional filters.
@@ -207,71 +228,6 @@ deployment-queue-cli list [OPTIONS]
 | `--trigger` | `-t` | | Filter by trigger (auto/manual/rollback) |
 | `--limit` | `-n` | 20 | Maximum results |
 | `--api-url` | | | Override API URL |
-
-#### get
-
-Get deployment details by ID.
-
-```bash
-deployment-queue-cli get <deployment-id> [--api-url <url>]
-```
-
-#### current
-
-Get the current (most recent deployed) deployment for a component.
-
-```bash
-deployment-queue-cli current <name> [OPTIONS]
-```
-
-| Option | Short | Required | Description |
-|--------|-------|----------|-------------|
-| `--env` | `-e` | Yes | Environment |
-| `--provider` | `-p` | Yes | Provider (gcp/aws/azure) |
-| `--account` | `-a` | Yes | Cloud account ID |
-| `--region` | `-r` | Yes | Cloud region |
-| `--cell` | | No | Cell ID |
-| `--api-url` | | No | Override API URL |
-
-#### history
-
-Show deployment history for a component.
-
-```bash
-deployment-queue-cli history <name> [OPTIONS]
-```
-
-| Option | Short | Required | Default | Description |
-|--------|-------|----------|---------|-------------|
-| `--env` | `-e` | Yes | | Environment |
-| `--provider` | `-p` | Yes | | Provider |
-| `--account` | `-a` | Yes | | Cloud account ID |
-| `--region` | `-r` | Yes | | Cloud region |
-| `--cell` | | No | | Cell ID |
-| `--limit` | `-n` | No | 10 | Maximum results |
-| `--api-url` | | No | | Override API URL |
-
-#### update-status
-
-Update the status of a deployment.
-
-```bash
-deployment-queue-cli update-status <name> <status> [OPTIONS]
-```
-
-**Valid statuses:** `scheduled`, `in_progress`, `deployed`, `failed`, `skipped`
-
-| Option | Short | Required | Description |
-|--------|-------|----------|-------------|
-| `--env` | `-e` | Yes | Environment |
-| `--provider` | `-p` | Yes | Provider |
-| `--account` | `-a` | Yes | Cloud account ID |
-| `--region` | `-r` | Yes | Cloud region |
-| `--cell` | | No | Cell ID |
-| `--notes` | | No | Notes for the update |
-| `--api-url` | | No | Override API URL |
-
-**Note:** When setting status to `deployed`, older scheduled deployments for the same taxonomy are automatically marked as `skipped`.
 
 #### rollback
 
@@ -326,19 +282,74 @@ $ deployment-queue-cli whoami
 ╰─────────────────────────────────────────────────╯
 ```
 
+### Creating Deployments
+
+#### Create a Kubernetes Deployment
+
+```bash
+$ deployment-queue-cli create user-service v2.1.0 \
+    --type k8s \
+    --env production \
+    --provider gcp \
+    --account my-project-123 \
+    --region europe-west1
+
+Created deployment: user-service @ v2.1.0
+  ID: abc123-def456-...
+  Status: scheduled
+  Environment: production
+```
+
+#### Create with All Options
+
+```bash
+$ deployment-queue-cli create user-service v2.1.0 \
+    --type k8s \
+    --env production \
+    --provider gcp \
+    --account my-project-123 \
+    --region europe-west1 \
+    --cell cell-001 \
+    --commit abc123def \
+    --description "Release 2.1.0" \
+    --notes "Feature X enabled" \
+    --build-uri "https://ci.example.com/builds/123" \
+    --pipeline-params '{"replicas": 3, "memory": "2Gi"}'
+
+Created deployment: user-service @ v2.1.0
+  ID: abc123-def456-...
+  Status: scheduled
+  Environment: production
+```
+
+#### Create with Manual Approval Required
+
+```bash
+$ deployment-queue-cli create user-service v2.1.0 \
+    --type terraform \
+    --env production \
+    --provider aws \
+    --no-auto
+
+Created deployment: user-service @ v2.1.0
+  ID: xyz789-...
+  Status: scheduled
+  Environment: production
+```
+
 ### Listing Deployments
 
 #### List All Deployments
 
 ```bash
 $ deployment-queue-cli list
-╭───────────────────── Deployments ─────────────────────╮
-│ Name          Version     Environment  Status    ... │
-├───────────────────────────────────────────────────────┤
-│ user-service  v2.1.0      production   deployed  ... │
-│ api-gateway   abc123def   staging      scheduled ... │
-│ data-pipeline v1.0.5      production   failed    ... │
-╰───────────────────────────────────────────────────────╯
+╭──────────────────────────────────── Deployments ─────────────────────────────────────╮
+│ ID           │ Name          │ Version  │ Status    │ Created     │ Provider │ ... │
+├──────────────┼───────────────┼──────────┼───────────┼─────────────┼──────────┼─────┤
+│ abc123...    │ user-service  │ v2.1.0   │ deployed  │ 2024-01-15  │ gcp      │ ... │
+│ def456...    │ api-gateway   │ abc123de │ scheduled │ 2024-01-15  │ aws      │ ... │
+│ ghi789...    │ data-pipeline │ v1.0.5   │ failed    │ 2024-01-14  │ gcp      │ ... │
+╰──────────────┴───────────────┴──────────┴───────────┴─────────────┴──────────┴─────╯
 ```
 
 #### List with Filters
@@ -352,72 +363,6 @@ deployment-queue-cli list --provider gcp --trigger rollback
 
 # List last 50 scheduled deployments
 deployment-queue-cli list --status scheduled --limit 50
-```
-
-### Component Operations
-
-#### Get Current Deployment
-
-```bash
-$ deployment-queue-cli current user-service \
-    --env production \
-    --provider gcp \
-    --account my-project-123 \
-    --region europe-west1
-
-user-service @ v2.1.0
-Status: deployed
-Trigger: auto
-Created: 2024-01-15 10:30:45
-```
-
-#### View Deployment History
-
-```bash
-$ deployment-queue-cli history user-service \
-    --env production \
-    --provider gcp \
-    --account my-project-123 \
-    --region europe-west1 \
-    --limit 5
-
-╭────────── History: user-service (production) ──────────╮
-│ Version   Status    Trigger   Created            Actor │
-├────────────────────────────────────────────────────────┤
-│ v2.1.0    deployed  auto      2024-01-15 10:30   ci    │
-│ v2.0.9    skipped   auto      2024-01-15 10:25   ci    │
-│ v2.0.8    deployed  rollback  2024-01-14 15:00   jsmith│
-│ v2.0.9    failed    auto      2024-01-14 14:30   ci    │
-│ v2.0.8    deployed  auto      2024-01-13 09:00   ci    │
-╰────────────────────────────────────────────────────────╯
-```
-
-### Status Updates
-
-#### Mark Deployment as Deployed
-
-```bash
-$ deployment-queue-cli update-status user-service deployed \
-    --env production \
-    --provider gcp \
-    --account my-project-123 \
-    --region europe-west1 \
-    --notes "Deployment verified in monitoring"
-
-Updated user-service to deployed
-```
-
-#### Mark Deployment as Failed
-
-```bash
-$ deployment-queue-cli update-status user-service failed \
-    --env production \
-    --provider gcp \
-    --account my-project-123 \
-    --region europe-west1 \
-    --notes "Health check failed after deploy"
-
-Updated user-service to failed
 ```
 
 ### Rollback Operations

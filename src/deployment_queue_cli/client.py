@@ -78,15 +78,6 @@ class DeploymentAPIClient:
             )
             return self._handle_response(response)
 
-    async def get_deployment(self, deployment_id: str) -> dict:
-        """Get deployment by ID."""
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(
-                f"{self.api_url}/v1/deployments/{deployment_id}",
-                headers=self._headers(),
-            )
-            return self._handle_response(response)
-
     async def create_deployment(self, deployment: dict) -> dict:
         """Create a new deployment."""
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -111,105 +102,6 @@ class DeploymentAPIClient:
     # Taxonomy-based operations
     # -------------------------------------------------------------------------
 
-    def _taxonomy_params(
-        self,
-        name: str,
-        environment: str,
-        provider: str,
-        cloud_account_id: str,
-        region: str,
-        cell_id: Optional[str] = None,
-    ) -> dict[str, str]:
-        """Build taxonomy query parameters."""
-        params = {
-            "name": name,
-            "environment": environment,
-            "provider": provider,
-            "cloud_account_id": cloud_account_id,
-            "region": region,
-        }
-        if cell_id:
-            params["cell_id"] = cell_id
-        return params
-
-    async def get_current(
-        self,
-        name: str,
-        environment: str,
-        provider: str,
-        cloud_account_id: str,
-        region: str,
-        cell_id: Optional[str] = None,
-    ) -> Optional[dict]:
-        """Get current deployment for a component."""
-        params = self._taxonomy_params(
-            name, environment, provider, cloud_account_id, region, cell_id
-        )
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(
-                f"{self.api_url}/v1/deployments/current",
-                headers=self._headers(),
-                params=params,
-            )
-            if response.status_code == 404:
-                return None
-            return self._handle_response(response)
-
-    async def get_history(
-        self,
-        name: str,
-        environment: str,
-        provider: str,
-        cloud_account_id: str,
-        region: str,
-        cell_id: Optional[str] = None,
-        limit: int = 10,
-    ) -> list[dict]:
-        """Get deployment history for a component."""
-        params: dict[str, Any] = self._taxonomy_params(
-            name, environment, provider, cloud_account_id, region, cell_id
-        )
-        params["limit"] = limit
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(
-                f"{self.api_url}/v1/deployments/history",
-                headers=self._headers(),
-                params=params,
-            )
-            return self._handle_response(response)
-
-    async def update_status(
-        self,
-        name: str,
-        environment: str,
-        provider: str,
-        cloud_account_id: str,
-        region: str,
-        new_status: str,
-        cell_id: Optional[str] = None,
-        notes: Optional[str] = None,
-        deployment_uri: Optional[str] = None,
-    ) -> dict:
-        """Update deployment status by taxonomy."""
-        params: dict[str, str] = self._taxonomy_params(
-            name, environment, provider, cloud_account_id, region, cell_id
-        )
-        params["new_status"] = new_status
-        if notes:
-            params["notes"] = notes
-        if deployment_uri:
-            params["deployment_uri"] = deployment_uri
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.patch(
-                f"{self.api_url}/v1/deployments/current/status",
-                headers=self._headers(),
-                params=params,
-            )
-            return self._handle_response(response)
-
     async def rollback(
         self,
         name: str,
@@ -217,13 +109,19 @@ class DeploymentAPIClient:
         provider: str,
         cloud_account_id: str,
         region: str,
-        cell_id: Optional[str] = None,
+        cell: Optional[str] = None,
         target_version: Optional[str] = None,
     ) -> dict:
         """Create rollback deployment."""
-        params = self._taxonomy_params(
-            name, environment, provider, cloud_account_id, region, cell_id
-        )
+        params: dict[str, str] = {
+            "name": name,
+            "environment": environment,
+            "provider": provider,
+            "cloud_account_id": cloud_account_id,
+            "region": region,
+        }
+        if cell:
+            params["cell"] = cell
         if target_version:
             params["target_version"] = target_version
 

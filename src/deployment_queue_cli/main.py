@@ -279,177 +279,13 @@ def list_deployments(
 
 
 @app.command()
-def get(
-    deployment_id: str = typer.Argument(..., help="Deployment ID"),
-    api_url: Optional[str] = typer.Option(None, "--api-url"),
-) -> None:
-    """Get deployment details by ID."""
-    client = get_client(api_url)
-
-    async def _get() -> dict:
-        return await client.get_deployment(deployment_id)
-
-    try:
-        d = asyncio.run(_get())
-    except DeploymentAPIError as e:
-        handle_api_error(e)
-
-    console.print(
-        Panel(
-            f"[bold]ID:[/bold] {d['id']}\n"
-            f"[bold]Name:[/bold] {d['name']}\n"
-            f"[bold]Version:[/bold] {d['version']}\n"
-            f"[bold]Status:[/bold] {d['status']}\n"
-            f"[bold]Trigger:[/bold] {d['trigger']}\n"
-            f"[bold]Environment:[/bold] {d['environment']}\n"
-            f"[bold]Provider:[/bold] {d['provider']}\n"
-            f"[bold]Cloud Account:[/bold] {d.get('cloud_account_id', 'N/A')}\n"
-            f"[bold]Region:[/bold] {d.get('region', 'N/A')}\n"
-            f"[bold]Cell:[/bold] {d.get('cell_id', 'N/A')}\n"
-            f"[bold]Created:[/bold] {d['created_at']}\n"
-            f"[bold]Updated:[/bold] {d['updated_at']}\n"
-            f"[bold]Created By:[/bold] {d.get('created_by_actor', 'N/A')} "
-            f"({d.get('created_by_repo', 'N/A')})\n"
-            f"[bold]Source Deployment:[/bold] {d.get('source_deployment_id', 'N/A')}\n"
-            f"[bold]Rollback From:[/bold] {d.get('rollback_from_deployment_id', 'N/A')}",
-            title=f"Deployment: {d['name']}",
-            box=box.ROUNDED,
-        )
-    )
-
-
-@app.command()
-def current(
-    name: str = typer.Argument(..., help="Component name"),
-    environment: str = typer.Option(..., "--env", "-e", help="Environment"),
-    provider: str = typer.Option(..., "--provider", "-p", help="Provider (gcp/aws/azure)"),
-    cloud_account_id: str = typer.Option(..., "--account", "-a", help="Cloud account ID"),
-    region: str = typer.Option(..., "--region", "-r", help="Region"),
-    cell_id: Optional[str] = typer.Option(None, "--cell", help="Cell ID"),
-    api_url: Optional[str] = typer.Option(None, "--api-url"),
-) -> None:
-    """Get current deployment for a component."""
-    client = get_client(api_url)
-
-    async def _current() -> Optional[dict]:
-        return await client.get_current(
-            name, environment, provider, cloud_account_id, region, cell_id
-        )
-
-    try:
-        d = asyncio.run(_current())
-    except DeploymentAPIError as e:
-        handle_api_error(e)
-
-    if not d:
-        console.print("[yellow]No deployment found for this component[/yellow]")
-        return
-
-    status_style = {
-        "deployed": "green",
-        "failed": "red",
-        "in_progress": "yellow",
-    }.get(d["status"], "white")
-
-    console.print(f"[bold]{d['name']}[/bold] @ [cyan]{d['version']}[/cyan]")
-    console.print(f"Status: [{status_style}]{d['status']}[/{status_style}]")
-    console.print(f"Trigger: {d['trigger']}")
-    console.print(f"Created: {d['created_at'][:19].replace('T', ' ')}")
-    if d.get("source_deployment_id"):
-        console.print(f"Source: {d['source_deployment_id'][:8]}...")
-
-
-@app.command()
-def history(
-    name: str = typer.Argument(..., help="Component name"),
-    environment: str = typer.Option(..., "--env", "-e"),
-    provider: str = typer.Option(..., "--provider", "-p"),
-    cloud_account_id: str = typer.Option(..., "--account", "-a"),
-    region: str = typer.Option(..., "--region", "-r"),
-    cell_id: Optional[str] = typer.Option(None, "--cell"),
-    limit: int = typer.Option(10, "--limit", "-n"),
-    api_url: Optional[str] = typer.Option(None, "--api-url"),
-) -> None:
-    """Show deployment history for a component."""
-    client = get_client(api_url)
-
-    async def _history() -> list[dict]:
-        return await client.get_history(
-            name, environment, provider, cloud_account_id, region, cell_id, limit
-        )
-
-    try:
-        deployments = asyncio.run(_history())
-    except DeploymentAPIError as e:
-        handle_api_error(e)
-
-    if not deployments:
-        console.print("[yellow]No deployment history found[/yellow]")
-        return
-
-    table = Table(title=f"History: {name} ({environment})", box=box.ROUNDED)
-    table.add_column("Version")
-    table.add_column("Status")
-    table.add_column("Trigger")
-    table.add_column("Created")
-    table.add_column("Actor")
-    table.add_column("Lineage")
-
-    for d in deployments:
-        lineage = ""
-        if d["trigger"] == "rollback" and d.get("source_deployment_id"):
-            lineage = f"<- {d['source_deployment_id'][:8]}"
-
-        table.add_row(
-            d["version"][:12],
-            d["status"],
-            d["trigger"],
-            d["created_at"][:19].replace("T", " "),
-            d.get("created_by_actor", "N/A"),
-            lineage,
-        )
-
-    console.print(table)
-
-
-@app.command("update-status")
-def update_status(
-    name: str = typer.Argument(..., help="Component name"),
-    new_status: str = typer.Argument(
-        ..., help="New status (scheduled/in_progress/deployed/failed/skipped)"
-    ),
-    environment: str = typer.Option(..., "--env", "-e"),
-    provider: str = typer.Option(..., "--provider", "-p"),
-    cloud_account_id: str = typer.Option(..., "--account", "-a"),
-    region: str = typer.Option(..., "--region", "-r"),
-    cell_id: Optional[str] = typer.Option(None, "--cell"),
-    notes: Optional[str] = typer.Option(None, "--notes"),
-    api_url: Optional[str] = typer.Option(None, "--api-url"),
-) -> None:
-    """Update deployment status."""
-    client = get_client(api_url)
-
-    async def _update() -> dict:
-        return await client.update_status(
-            name, environment, provider, cloud_account_id, region, new_status, cell_id, notes
-        )
-
-    try:
-        d = asyncio.run(_update())
-    except DeploymentAPIError as e:
-        handle_api_error(e)
-
-    console.print(f"[green]Updated {d['name']} to {d['status']}[/green]")
-
-
-@app.command()
 def rollback(
     name: str = typer.Argument(..., help="Component name"),
     environment: str = typer.Option(..., "--env", "-e"),
     provider: str = typer.Option(..., "--provider", "-p"),
     cloud_account_id: str = typer.Option(..., "--account", "-a"),
     region: str = typer.Option(..., "--region", "-r"),
-    cell_id: Optional[str] = typer.Option(None, "--cell"),
+    cell: Optional[str] = typer.Option(None, "--cell"),
     target_version: Optional[str] = typer.Option(
         None, "--version", "-v", help="Target version (default: previous)"
     ),
@@ -460,7 +296,7 @@ def rollback(
 
     async def _rollback() -> dict:
         return await client.rollback(
-            name, environment, provider, cloud_account_id, region, cell_id, target_version
+            name, environment, provider, cloud_account_id, region, cell, target_version
         )
 
     try:

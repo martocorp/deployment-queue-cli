@@ -39,7 +39,7 @@ This is a CLI tool for the Deployment Queue API, built with Typer and Rich for t
 
 - All API operations use `DeploymentAPIClient` which requires `Credentials` from auth
 - Commands that need auth call `get_client()` which exits with error if not logged in
-- Taxonomy-based operations (current, history, rollback) require: name, environment, provider, cloud_account_id, region
+- Rollback requires taxonomy: name, environment, provider, cloud_account_id, region
 
 ## Code Standards
 

@@ -120,21 +120,6 @@ class TestDeploymentAPIClientMethods:
             assert call_kwargs["params"]["limit"] == 10
 
     @pytest.mark.asyncio
-    async def test_get_deployment(self, client: DeploymentAPIClient, mock_deployment: dict) -> None:
-        """Get deployment returns deployment details."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_deployment
-
-        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
-
-            result = await client.get_deployment("test-deployment-uuid")
-
-            assert result["id"] == "test-deployment-uuid"
-            assert "test-deployment-uuid" in mock_get.call_args.args[0]
-
-    @pytest.mark.asyncio
     async def test_create_deployment(
         self, client: DeploymentAPIClient, mock_deployment: dict
     ) -> None:
@@ -152,46 +137,6 @@ class TestDeploymentAPIClientMethods:
             assert result["id"] == "test-deployment-uuid"
             call_kwargs = mock_post.call_args.kwargs
             assert call_kwargs["json"] == deployment_data
-
-    @pytest.mark.asyncio
-    async def test_get_current(self, client: DeploymentAPIClient, mock_deployment: dict) -> None:
-        """Get current deployment returns current deployment."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_deployment
-
-        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
-
-            result = await client.get_current(
-                name="test-service",
-                environment="production",
-                provider="gcp",
-                cloud_account_id="project-123",
-                region="us-central1",
-            )
-
-            assert result is not None
-            assert result["name"] == "test-service"
-
-    @pytest.mark.asyncio
-    async def test_get_current_not_found(self, client: DeploymentAPIClient) -> None:
-        """Get current deployment returns None when not found."""
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-
-        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
-
-            result = await client.get_current(
-                name="test-service",
-                environment="production",
-                provider="gcp",
-                cloud_account_id="project-123",
-                region="us-central1",
-            )
-
-            assert result is None
 
     @pytest.mark.asyncio
     async def test_rollback(self, client: DeploymentAPIClient, mock_deployment: dict) -> None:
