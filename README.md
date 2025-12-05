@@ -63,12 +63,41 @@ deployment-queue-cli login --org my-organisation
 
 ## Authentication
 
-The CLI supports two authentication methods:
+The CLI supports multiple authentication methods with the following priority:
 
-| Method | Use Case | Command |
-|--------|----------|---------|
+1. **Environment Variables** - Direct credentials via env vars
+2. **Custom Credentials File** - Path specified via env var
+3. **Default Credentials File** - `~/.config/deployment-queue-cli/credentials.json`
+
+| Method | Use Case | Setup |
+|--------|----------|-------|
 | **Device Flow** | Interactive terminal | `deployment-queue-cli login --org my-org` |
-| **PAT** | Scripts, automation | `deployment-queue-cli login --org my-org --pat ghp_xxx` |
+| **PAT via CLI** | One-time setup | `deployment-queue-cli login --org my-org --pat ghp_xxx` |
+| **Environment Variables** | CI/CD, MCP server | See below |
+| **Credentials File** | Shared config | See below |
+
+### Environment Variables (for CI/CD and MCP)
+
+```bash
+export DEPLOYMENT_QUEUE_CLI_GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+export DEPLOYMENT_QUEUE_CLI_ORGANISATION=my-org
+export DEPLOYMENT_QUEUE_CLI_USERNAME=my-username  # Optional
+```
+
+### Custom Credentials File
+
+```bash
+export DEPLOYMENT_QUEUE_CLI_CREDENTIALS_FILE=/path/to/credentials.json
+```
+
+The file should contain:
+```json
+{
+  "github_token": "ghp_xxxxxxxxxxxx",
+  "organisation": "my-org",
+  "username": "my-username"
+}
+```
 
 ### Device Flow
 
@@ -220,7 +249,25 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 
 ### Authentication
 
-The MCP server uses the same credentials as the CLI. Run `deployment-queue-cli login` first to authenticate.
+The MCP server uses the same credentials as the CLI. You can either:
+
+1. Run `deployment-queue-cli login` first to authenticate, or
+2. Pass credentials via environment variables in the MCP config:
+
+```json
+{
+  "mcpServers": {
+    "deployment-queue": {
+      "command": "deployment-queue-mcp",
+      "env": {
+        "DEPLOYMENT_QUEUE_CLI_API_URL": "https://deployments.example.com",
+        "DEPLOYMENT_QUEUE_CLI_GITHUB_TOKEN": "ghp_xxxxxxxxxxxx",
+        "DEPLOYMENT_QUEUE_CLI_ORGANISATION": "my-org"
+      }
+    }
+  }
+}
+```
 
 ## GitHub OAuth App Setup
 

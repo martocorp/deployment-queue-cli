@@ -2,12 +2,14 @@
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from deployment_queue_cli.auth import (
     Credentials,
+    _get_credentials_from_env,
+    _get_credentials_from_file,
     clear_credentials,
     get_stored_credentials,
     pat_login,
@@ -106,6 +108,184 @@ class TestCredentialsStorage:
 
         with patch("deployment_queue_cli.auth.CREDENTIALS_FILE", creds_file):
             clear_credentials()  # Should not raise
+
+
+class TestCredentialsFromEnv:
+    """Tests for environment variable credentials."""
+
+    def test_credentials_from_env_success(self) -> None:
+        """Credentials loaded from environment variables."""
+        mock_settings = MagicMock()
+        mock_settings.github_token = "ghp_env_token"
+        mock_settings.organisation = "env-org"
+        mock_settings.username = "env-user"
+
+        with patch("deployment_queue_cli.auth.get_settings", return_value=mock_settings):
+            creds = _get_credentials_from_env()
+
+            assert creds is not None
+            assert creds.github_token == "ghp_env_token"
+            assert creds.organisation == "env-org"
+            assert creds.username == "env-user"
+
+    def test_credentials_from_env_default_username(self) -> None:
+        """Username defaults to 'env-user' when not provided."""
+        mock_settings = MagicMock()
+        mock_settings.github_token = "ghp_env_token"
+        mock_settings.organisation = "env-org"
+        mock_settings.username = None
+
+        with patch("deployment_queue_cli.auth.get_settings", return_value=mock_settings):
+            creds = _get_credentials_from_env()
+
+            assert creds is not None
+            assert creds.username == "env-user"
+
+    def test_credentials_from_env_missing_token(self) -> None:
+        """Returns None when token is missing."""
+        mock_settings = MagicMock()
+        mock_settings.github_token = None
+        mock_settings.organisation = "env-org"
+
+        with patch("deployment_queue_cli.auth.get_settings", return_value=mock_settings):
+            assert _get_credentials_from_env() is None
+
+    def test_credentials_from_env_missing_org(self) -> None:
+        """Returns None when organisation is missing."""
+        mock_settings = MagicMock()
+        mock_settings.github_token = "ghp_env_token"
+        mock_settings.organisation = None
+
+        with patch("deployment_queue_cli.auth.get_settings", return_value=mock_settings):
+            assert _get_credentials_from_env() is None
+
+
+class TestCredentialsFromFile:
+    """Tests for file-based credentials."""
+
+    def test_credentials_from_file_success(self, tmp_path: Path) -> None:
+        """Credentials loaded from custom file path."""
+        creds_file = tmp_path / "custom_creds.json"
+        creds_file.write_text(
+            json.dumps({
+                "github_token": "ghp_file_token",
+                "organisation": "file-org",
+                "username": "file-user",
+            })
+        )
+
+        creds = _get_credentials_from_file(creds_file)
+
+        assert creds is not None
+        assert creds.github_token == "ghp_file_token"
+        assert creds.organisation == "file-org"
+        assert creds.username == "file-user"
+
+    def test_credentials_from_file_not_found(self, tmp_path: Path) -> None:
+        """Returns None when file doesn't exist."""
+        creds_file = tmp_path / "nonexistent.json"
+        assert _get_credentials_from_file(creds_file) is None
+
+    def test_credentials_from_file_invalid_json(self, tmp_path: Path) -> None:
+        """Returns None when file contains invalid JSON."""
+        creds_file = tmp_path / "invalid.json"
+        creds_file.write_text("not valid json")
+        assert _get_credentials_from_file(creds_file) is None
+
+
+class TestCredentialsPriority:
+    """Tests for credential loading priority."""
+
+    def test_env_vars_take_priority(self, tmp_path: Path) -> None:
+        """Environment variables take priority over files."""
+        # Create a credentials file
+        creds_file = tmp_path / "credentials.json"
+        creds_file.write_text(
+            json.dumps({
+                "github_token": "ghp_file_token",
+                "organisation": "file-org",
+                "username": "file-user",
+            })
+        )
+
+        # Set up env vars
+        mock_settings = MagicMock()
+        mock_settings.github_token = "ghp_env_token"
+        mock_settings.organisation = "env-org"
+        mock_settings.username = "env-user"
+        mock_settings.credentials_file = None
+
+        with (
+            patch("deployment_queue_cli.auth.get_settings", return_value=mock_settings),
+            patch("deployment_queue_cli.auth.CREDENTIALS_FILE", creds_file),
+        ):
+            creds = get_stored_credentials()
+
+            assert creds is not None
+            assert creds.github_token == "ghp_env_token"
+            assert creds.organisation == "env-org"
+
+    def test_custom_file_over_default(self, tmp_path: Path) -> None:
+        """Custom credentials file takes priority over default."""
+        # Create default credentials file
+        default_file = tmp_path / "default_creds.json"
+        default_file.write_text(
+            json.dumps({
+                "github_token": "ghp_default",
+                "organisation": "default-org",
+                "username": "default-user",
+            })
+        )
+
+        # Create custom credentials file
+        custom_file = tmp_path / "custom_creds.json"
+        custom_file.write_text(
+            json.dumps({
+                "github_token": "ghp_custom",
+                "organisation": "custom-org",
+                "username": "custom-user",
+            })
+        )
+
+        mock_settings = MagicMock()
+        mock_settings.github_token = None
+        mock_settings.organisation = None
+        mock_settings.credentials_file = str(custom_file)
+
+        with (
+            patch("deployment_queue_cli.auth.get_settings", return_value=mock_settings),
+            patch("deployment_queue_cli.auth.CREDENTIALS_FILE", default_file),
+        ):
+            creds = get_stored_credentials()
+
+            assert creds is not None
+            assert creds.github_token == "ghp_custom"
+            assert creds.organisation == "custom-org"
+
+    def test_falls_back_to_default_file(self, tmp_path: Path) -> None:
+        """Falls back to default file when no env vars or custom file."""
+        default_file = tmp_path / "credentials.json"
+        default_file.write_text(
+            json.dumps({
+                "github_token": "ghp_default",
+                "organisation": "default-org",
+                "username": "default-user",
+            })
+        )
+
+        mock_settings = MagicMock()
+        mock_settings.github_token = None
+        mock_settings.organisation = None
+        mock_settings.credentials_file = None
+
+        with (
+            patch("deployment_queue_cli.auth.get_settings", return_value=mock_settings),
+            patch("deployment_queue_cli.auth.CREDENTIALS_FILE", default_file),
+        ):
+            creds = get_stored_credentials()
+
+            assert creds is not None
+            assert creds.github_token == "ghp_default"
 
 
 class TestPATLogin:

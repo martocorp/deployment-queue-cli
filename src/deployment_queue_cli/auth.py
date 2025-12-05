@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -25,13 +26,26 @@ class Credentials:
     username: str
 
 
-def get_stored_credentials() -> Optional[Credentials]:
-    """Load stored credentials from disk."""
-    if not CREDENTIALS_FILE.exists():
+def _get_credentials_from_env() -> Optional[Credentials]:
+    """Load credentials from environment variables."""
+    settings = get_settings()
+
+    if settings.github_token and settings.organisation:
+        return Credentials(
+            github_token=settings.github_token,
+            organisation=settings.organisation,
+            username=settings.username or "env-user",
+        )
+    return None
+
+
+def _get_credentials_from_file(file_path: Path) -> Optional[Credentials]:
+    """Load credentials from a JSON file."""
+    if not file_path.exists():
         return None
 
     try:
-        data = json.loads(CREDENTIALS_FILE.read_text())
+        data = json.loads(file_path.read_text())
         return Credentials(
             github_token=data["github_token"],
             organisation=data["organisation"],
@@ -39,6 +53,29 @@ def get_stored_credentials() -> Optional[Credentials]:
         )
     except (json.JSONDecodeError, KeyError):
         return None
+
+
+def get_stored_credentials() -> Optional[Credentials]:
+    """
+    Load credentials with priority:
+    1. Environment variables (DEPLOYMENT_QUEUE_CLI_GITHUB_TOKEN, etc.)
+    2. Custom credentials file (DEPLOYMENT_QUEUE_CLI_CREDENTIALS_FILE)
+    3. Default credentials file (~/.config/deployment-queue-cli/credentials.json)
+    """
+    # Priority 1: Direct environment variables
+    creds = _get_credentials_from_env()
+    if creds:
+        return creds
+
+    # Priority 2: Custom credentials file path from environment
+    settings = get_settings()
+    if settings.credentials_file:
+        creds = _get_credentials_from_file(Path(settings.credentials_file))
+        if creds:
+            return creds
+
+    # Priority 3: Default credentials file
+    return _get_credentials_from_file(CREDENTIALS_FILE)
 
 
 def store_credentials(creds: Credentials) -> None:

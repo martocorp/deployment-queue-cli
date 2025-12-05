@@ -10,6 +10,7 @@ This document provides detailed usage instructions for the Deployment Queue CLI.
 - [Authentication](#authentication)
 - [Commands Reference](#commands-reference)
 - [Examples](#examples)
+- [MCP Server](#mcp-server)
 
 ## Prerequisites
 
@@ -47,6 +48,10 @@ make init
 |----------|----------|---------|-------------|
 | `DEPLOYMENT_QUEUE_CLI_API_URL` | Yes | `https://deployments.example.com` | Deployment Queue API URL |
 | `DEPLOYMENT_QUEUE_CLI_GITHUB_CLIENT_ID` | For Device Flow | - | GitHub OAuth App Client ID |
+| `DEPLOYMENT_QUEUE_CLI_GITHUB_TOKEN` | For env auth | - | GitHub token (direct auth) |
+| `DEPLOYMENT_QUEUE_CLI_ORGANISATION` | For env auth | - | Organisation name (direct auth) |
+| `DEPLOYMENT_QUEUE_CLI_USERNAME` | No | `env-user` | Username (direct auth) |
+| `DEPLOYMENT_QUEUE_CLI_CREDENTIALS_FILE` | No | - | Path to credentials JSON file |
 
 ### Configuration File
 
@@ -59,16 +64,34 @@ DEPLOYMENT_QUEUE_CLI_GITHUB_CLIENT_ID=Iv1.xxxxxxxxxx
 
 ### Credentials Storage
 
-Credentials are stored securely at `~/.config/deployment-queue-cli/credentials.json` with restricted permissions (0600).
+Credentials are loaded with the following priority:
+
+1. **Environment Variables** - `DEPLOYMENT_QUEUE_CLI_GITHUB_TOKEN` + `DEPLOYMENT_QUEUE_CLI_ORGANISATION`
+2. **Custom Credentials File** - Path from `DEPLOYMENT_QUEUE_CLI_CREDENTIALS_FILE`
+3. **Default Credentials File** - `~/.config/deployment-queue-cli/credentials.json`
+
+The default credentials file is stored securely with restricted permissions (0600).
+
+#### Credentials File Format
+
+```json
+{
+  "github_token": "ghp_xxxxxxxxxxxx",
+  "organisation": "my-org",
+  "username": "my-username"
+}
+```
 
 ## Authentication
 
-The CLI supports two authentication methods:
+The CLI supports multiple authentication methods:
 
 | Method | Use Case | Requirements |
 |--------|----------|--------------|
 | **Device Flow** | Interactive terminal use | GitHub OAuth App Client ID |
 | **PAT** | Scripts, automation | GitHub PAT with `read:org` and `read:user` scopes |
+| **Environment Variables** | CI/CD, MCP server | `GITHUB_TOKEN` + `ORGANISATION` env vars |
+| **Credentials File** | Shared configuration | JSON file with credentials |
 
 ### Device Flow (Recommended)
 
@@ -493,3 +516,121 @@ Switched to my-company-sandbox
 # View deployments in sandbox
 $ deployment-queue-cli list --status scheduled
 ```
+
+## MCP Server
+
+The package includes an MCP (Model Context Protocol) server that exposes deployment operations as tools for Claude.
+
+### Setup
+
+#### Claude Desktop
+
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "deployment-queue": {
+      "command": "deployment-queue-mcp",
+      "env": {
+        "DEPLOYMENT_QUEUE_CLI_API_URL": "https://deployments.example.com"
+      }
+    }
+  }
+}
+```
+
+#### Claude Code
+
+Add to your Claude Code MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "deployment-queue": {
+      "command": "deployment-queue-mcp",
+      "env": {
+        "DEPLOYMENT_QUEUE_CLI_API_URL": "https://deployments.example.com"
+      }
+    }
+  }
+}
+```
+
+### Authentication
+
+The MCP server uses the same credentials as the CLI. Authenticate first:
+
+```bash
+deployment-queue-cli login --org my-organisation
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_deployments` | List deployments with optional filters (status, provider, trigger, limit) |
+| `create_deployment` | Create a new deployment (requires name, version, type, provider) |
+| `get_deployment` | Get deployment details by ID |
+| `release_deployment` | Release a deployment (set status to in_progress) |
+| `update_deployment_status` | Update deployment status |
+| `rollback_deployment` | Create a rollback deployment |
+
+### Tool Parameters
+
+#### list_deployments
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `status` | string | No | Filter by status |
+| `provider` | string | No | Filter by provider (gcp/aws/azure) |
+| `trigger` | string | No | Filter by trigger (auto/manual/rollback) |
+| `limit` | integer | No | Maximum results (default: 20) |
+
+#### create_deployment
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Component name |
+| `version` | string | Yes | Version to deploy |
+| `type` | string | Yes | Deployment type (k8s/terraform/data_pipeline) |
+| `provider` | string | Yes | Provider (gcp/aws/azure) |
+| `cloud_account_id` | string | No | Cloud account ID |
+| `region` | string | No | Cloud region |
+| `cell` | string | No | Cell ID |
+| `auto` | boolean | No | Auto-deploy when ready (default: true) |
+| `description` | string | No | Deployment description |
+| `notes` | string | No | Deployment notes |
+| `commit_sha` | string | No | Git commit SHA |
+| `build_uri` | string | No | Build URI |
+| `pipeline_extra_params` | string | No | Pipeline extra params (JSON string) |
+
+#### get_deployment
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `deployment_id` | string | Yes | Deployment ID |
+
+#### release_deployment
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `deployment_id` | string | Yes | Deployment ID |
+
+#### update_deployment_status
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `deployment_id` | string | Yes | Deployment ID |
+| `status` | string | Yes | New status |
+
+#### rollback_deployment
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Component name |
+| `provider` | string | Yes | Provider (gcp/aws/azure) |
+| `cloud_account_id` | string | Yes | Cloud account ID |
+| `region` | string | Yes | Cloud region |
+| `cell` | string | No | Cell ID |
+| `target_version` | string | No | Target version (default: previous) |

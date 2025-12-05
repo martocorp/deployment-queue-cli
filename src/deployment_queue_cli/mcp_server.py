@@ -29,7 +29,7 @@ TOOLS = [
             "properties": {
                 "status": {
                     "type": "string",
-                    "description": "Filter by status (scheduled/in_progress/deployed/failed)",
+                    "description": "Filter by status",
                 },
                 "provider": {
                     "type": "string",
@@ -150,7 +150,7 @@ TOOLS = [
                 },
                 "status": {
                     "type": "string",
-                    "description": "New status (scheduled/in_progress/deployed/failed/skipped)",
+                    "description": "New status",
                 },
             },
             "required": ["deployment_id", "status"],
