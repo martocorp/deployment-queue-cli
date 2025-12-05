@@ -248,6 +248,9 @@ def list_deployments(
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Filter by provider"),
     trigger: Optional[str] = typer.Option(None, "--trigger", "-t", help="Filter by trigger"),
     limit: int = typer.Option(20, "--limit", "-n", help="Max results"),
+    sort_by_updated: bool = typer.Option(
+        False, "--sort-updated", "-u", help="Sort by updated timestamp (newest first)"
+    ),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="Override API URL"),
 ) -> None:
     """List deployments (scheduled only by default, use --all for all statuses)."""
@@ -270,12 +273,19 @@ def list_deployments(
         console.print("[yellow]No deployments found[/yellow]")
         return
 
+    # Sort by updated_at if requested
+    if sort_by_updated:
+        deployments.sort(
+            key=lambda d: d.get("updated_at", d.get("created_at", "")),
+            reverse=True
+        )
+
     table = Table(title="Deployments", box=box.ROUNDED)
     table.add_column("ID")
     table.add_column("Name", style="bold")
     table.add_column("Version")
     table.add_column("Status")
-    table.add_column("Created")
+    table.add_column("Updated")
     table.add_column("Provider")
     table.add_column("Account")
     table.add_column("Region")
@@ -292,12 +302,13 @@ def list_deployments(
     for d in deployments:
         status = d.get("status", "")
         style = status_styles.get(status, "white")
+        updated_at = d.get("updated_at", d.get("created_at", ""))
         table.add_row(
             d["id"],
             d["name"],
             d["version"],
             f"[{style}]{status}[/{style}]",
-            d["created_at"][:19].replace("T", " "),
+            updated_at[:19].replace("T", " ") if updated_at else "",
             d.get("provider", ""),
             d.get("cloud_account_id", ""),
             d.get("region", ""),

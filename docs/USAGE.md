@@ -252,6 +252,7 @@ deployment-queue-cli list [OPTIONS]
 | `--provider` | `-p` | | Filter by provider (gcp/aws/azure) |
 | `--trigger` | `-t` | | Filter by trigger (auto/manual/rollback) |
 | `--limit` | `-n` | 20 | Maximum results |
+| `--sort-updated` | `-u` | false | Sort by updated timestamp (newest first) |
 | `--api-url` | | | Override API URL |
 
 #### release
