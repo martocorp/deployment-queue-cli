@@ -276,23 +276,17 @@ def list_deployments(
 
 @app.command()
 def rollback(
-    name: str = typer.Argument(..., help="Component name"),
-    provider: str = typer.Option(..., "--provider", "-p"),
-    cloud_account_id: str = typer.Option(..., "--account", "-a"),
-    region: str = typer.Option(..., "--region", "-r"),
-    cell: Optional[str] = typer.Option(None, "--cell"),
+    deployment_id: str = typer.Argument(..., help="Deployment ID to rollback"),
     target_version: Optional[str] = typer.Option(
         None, "--version", "-v", help="Target version (default: previous)"
     ),
     api_url: Optional[str] = typer.Option(None, "--api-url"),
 ) -> None:
-    """Create rollback deployment."""
+    """Create rollback deployment from an existing deployment ID."""
     client = get_client(api_url)
 
     async def _rollback() -> dict:
-        return await client.rollback(
-            name, provider, cloud_account_id, region, cell, target_version
-        )
+        return await client.rollback_by_id(deployment_id, target_version)
 
     try:
         d = asyncio.run(_rollback())

@@ -158,36 +158,20 @@ TOOLS = [
     ),
     Tool(
         name="rollback_deployment",
-        description="Create a rollback deployment",
+        description="Create a rollback deployment from an existing deployment ID",
         inputSchema={
             "type": "object",
             "properties": {
-                "name": {
+                "deployment_id": {
                     "type": "string",
-                    "description": "Component name",
-                },
-                "provider": {
-                    "type": "string",
-                    "description": "Provider (gcp/aws/azure)",
-                },
-                "cloud_account_id": {
-                    "type": "string",
-                    "description": "Cloud account ID",
-                },
-                "region": {
-                    "type": "string",
-                    "description": "Cloud region",
-                },
-                "cell": {
-                    "type": "string",
-                    "description": "Cell ID",
+                    "description": "Deployment ID to rollback",
                 },
                 "target_version": {
                     "type": "string",
                     "description": "Target version to rollback to (default: previous)",
                 },
             },
-            "required": ["name", "provider", "cloud_account_id", "region"],
+            "required": ["deployment_id"],
         },
     ),
 ]
@@ -308,12 +292,8 @@ async def handle_update_deployment_status(arguments: dict) -> str:
 async def handle_rollback_deployment(arguments: dict) -> str:
     """Handle rollback_deployment tool call."""
     client = get_client()
-    result = await client.rollback(
-        name=arguments["name"],
-        provider=arguments["provider"],
-        cloud_account_id=arguments["cloud_account_id"],
-        region=arguments["region"],
-        cell=arguments.get("cell"),
+    result = await client.rollback_by_id(
+        deployment_id=arguments["deployment_id"],
         target_version=arguments.get("target_version"),
     )
     return (

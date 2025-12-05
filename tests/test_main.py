@@ -364,20 +364,14 @@ class TestRollbackCommand:
             ) as mock_client_class,
         ):
             mock_client = MagicMock()
-            mock_client.rollback = AsyncMock(return_value=rollback_deployment)
+            mock_client.rollback_by_id = AsyncMock(return_value=rollback_deployment)
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
                 app,
                 [
                     "rollback",
-                    "test-service",
-                    "--provider",
-                    "gcp",
-                    "--account",
-                    "project-123",
-                    "--region",
-                    "us-central1",
+                    "test-deployment-uuid",
                 ],
             )
 
@@ -399,31 +393,25 @@ class TestRollbackCommand:
             ) as mock_client_class,
         ):
             mock_client = MagicMock()
-            mock_client.rollback = AsyncMock(return_value=mock_deployment)
+            mock_client.rollback_by_id = AsyncMock(return_value=mock_deployment)
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
                 app,
                 [
                     "rollback",
-                    "test-service",
-                    "--provider",
-                    "gcp",
-                    "--account",
-                    "project-123",
-                    "--region",
-                    "us-central1",
+                    "test-deployment-uuid",
                     "--version",
                     "v0.9.0",
                 ],
             )
 
             assert result.exit_code == 0
-            mock_client.rollback.assert_called_once()
+            mock_client.rollback_by_id.assert_called_once()
             # Check that target_version was passed
-            call_kwargs = mock_client.rollback.call_args
-            assert call_kwargs[0][4] is None  # cell
-            assert call_kwargs[0][5] == "v0.9.0"  # target_version
+            call_kwargs = mock_client.rollback_by_id.call_args
+            assert call_kwargs[0][0] == "test-deployment-uuid"  # deployment_id
+            assert call_kwargs[0][1] == "v0.9.0"  # target_version
 
 
 class TestReleaseCommand:

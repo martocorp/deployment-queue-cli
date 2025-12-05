@@ -42,7 +42,7 @@ class TestToolDefinitions:
     def test_rollback_deployment_required_fields(self) -> None:
         """Rollback deployment has required fields."""
         tool = next(t for t in TOOLS if t.name == "rollback_deployment")
-        assert tool.inputSchema["required"] == ["name", "provider", "cloud_account_id", "region"]
+        assert tool.inputSchema["required"] == ["deployment_id"]
 
 
 class TestListDeployments:
@@ -326,14 +326,11 @@ class TestRollbackDeployment:
             ) as mock_client_class,
         ):
             mock_client = AsyncMock()
-            mock_client.rollback = AsyncMock(return_value=rollback)
+            mock_client.rollback_by_id = AsyncMock(return_value=rollback)
             mock_client_class.return_value = mock_client
 
             result = await handle_rollback_deployment({
-                "name": "test-service",
-                "provider": "gcp",
-                "cloud_account_id": "project-123",
-                "region": "us-central1",
+                "deployment_id": "test-deployment-uuid",
             })
 
             assert "Rollback created" in result

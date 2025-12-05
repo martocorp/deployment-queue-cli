@@ -116,7 +116,7 @@ class DeploymentAPIClient:
         cell: Optional[str] = None,
         target_version: Optional[str] = None,
     ) -> dict:
-        """Create rollback deployment."""
+        """Create rollback deployment using taxonomy parameters."""
         params: dict[str, str] = {
             "name": name,
             "provider": provider,
@@ -133,5 +133,23 @@ class DeploymentAPIClient:
                 f"{self.api_url}/v1/deployments/rollback",
                 headers=self._headers(),
                 params=params,
+            )
+            return self._handle_response(response)
+
+    async def rollback_by_id(
+        self,
+        deployment_id: str,
+        target_version: Optional[str] = None,
+    ) -> dict:
+        """Create rollback deployment using deployment ID."""
+        params: dict[str, str] = {}
+        if target_version:
+            params["target_version"] = target_version
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{self.api_url}/v1/deployments/{deployment_id}/rollback",
+                headers=self._headers(),
+                params=params if params else None,
             )
             return self._handle_response(response)

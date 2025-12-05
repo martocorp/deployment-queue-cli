@@ -211,3 +211,29 @@ class TestDeploymentAPIClientMethods:
 
             assert result["trigger"] == "rollback"
             assert result["source_deployment_id"] == "previous-uuid"
+
+    @pytest.mark.asyncio
+    async def test_rollback_by_id(
+        self, client: DeploymentAPIClient, mock_deployment: dict
+    ) -> None:
+        """Rollback by ID creates rollback deployment."""
+        rollback_deployment = {
+            **mock_deployment,
+            "trigger": "rollback",
+            "source_deployment_id": "previous-uuid",
+            "rollback_from_deployment_id": "current-uuid",
+        }
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = rollback_deployment
+
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+
+            result = await client.rollback_by_id(deployment_id="test-deployment-uuid")
+
+            assert result["trigger"] == "rollback"
+            assert result["source_deployment_id"] == "previous-uuid"
+            # Verify endpoint includes deployment ID
+            call_args = mock_post.call_args
+            assert "test-deployment-uuid/rollback" in call_args[0][0]

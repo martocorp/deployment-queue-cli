@@ -284,18 +284,14 @@ deployment-queue-cli update-status <deployment-id> <status>
 
 #### rollback
 
-Create a rollback deployment.
+Create a rollback deployment from an existing deployment ID.
 
 ```bash
-deployment-queue-cli rollback <name> [OPTIONS]
+deployment-queue-cli rollback <deployment_id> [OPTIONS]
 ```
 
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
-| `--provider` | `-p` | Yes | | Provider |
-| `--account` | `-a` | Yes | | Cloud account ID |
-| `--region` | `-r` | Yes | | Cloud region |
-| `--cell` | | No | | Cell ID |
 | `--version` | `-v` | No | Previous | Target version |
 | `--api-url` | | No | | Override API URL |
 
@@ -473,13 +469,10 @@ Updated deployment: user-service @ v2.1.0
 #### Rollback to Previous Version
 
 ```bash
-$ deployment-queue-cli rollback user-service \
-    --provider gcp \
-    --account my-project-123 \
-    --region europe-west1
+$ deployment-queue-cli rollback abc123-def456-ghi789
 
 Rollback created: user-service -> v2.0.8
-  ID: abc123-def456-...
+  ID: new123-def456-...
   Source: def456...
   Rollback from: abc123...
 ```
@@ -487,11 +480,7 @@ Rollback created: user-service -> v2.0.8
 #### Rollback to Specific Version
 
 ```bash
-$ deployment-queue-cli rollback user-service \
-    --provider gcp \
-    --account my-project-123 \
-    --region europe-west1 \
-    --version v1.9.0
+$ deployment-queue-cli rollback abc123-def456-ghi789 --version v1.9.0
 
 Rollback created: user-service -> v1.9.0
   ID: xyz789-...
@@ -628,9 +617,5 @@ deployment-queue-cli login --org my-organisation
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | Yes | Component name |
-| `provider` | string | Yes | Provider (gcp/aws/azure) |
-| `cloud_account_id` | string | Yes | Cloud account ID |
-| `region` | string | Yes | Cloud region |
-| `cell` | string | No | Cell ID |
+| `deployment_id` | string | Yes | Deployment ID to rollback |
 | `target_version` | string | No | Target version (default: previous) |
