@@ -25,7 +25,7 @@ class TestCreateCommand:
     def test_create_deployment_success(
         self, mock_credentials: Credentials, mock_deployment: dict
     ) -> None:
-        """Create deployment with required options."""
+        """Create deployment with required options and --yes flag."""
         with (
             patch(
                 "deployment_queue_cli.main.get_stored_credentials",
@@ -49,6 +49,7 @@ class TestCreateCommand:
                     "k8s",
                     "--provider",
                     "gcp",
+                    "--yes",
                 ],
             )
 
@@ -108,6 +109,7 @@ class TestCreateCommand:
                     "https://ci.example.com/123",
                     "--pipeline-params",
                     '{"key": "value", "count": 42}',
+                    "--yes",
                 ],
             )
 
@@ -124,6 +126,40 @@ class TestCreateCommand:
             assert call_args["commit_sha"] == "abc123"
             assert call_args["pipeline_extra_params"] == '{"key": "value", "count": 42}'
             assert call_args["build_uri"] == "https://ci.example.com/123"
+
+    def test_create_deployment_aborted(
+        self, mock_credentials: Credentials
+    ) -> None:
+        """Create deployment aborted when user declines confirmation."""
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                [
+                    "create",
+                    "my-service",
+                    "v1.0.0",
+                    "--type",
+                    "k8s",
+                    "--provider",
+                    "gcp",
+                ],
+                input="n\n",
+            )
+
+            assert result.exit_code == 0
+            assert "Aborted" in result.output
+            mock_client.create_deployment.assert_not_called()
 
     def test_create_deployment_not_authenticated(self) -> None:
         """Create fails when not authenticated."""
@@ -176,6 +212,7 @@ class TestCreateCommand:
                     "k8s",
                     "--provider",
                     "gcp",
+                    "--yes",
                 ],
             )
 
@@ -203,7 +240,7 @@ class TestListCommand:
     def test_list_deployments_success(
         self, mock_credentials: Credentials, mock_deployment_list: list[dict]
     ) -> None:
-        """List deployments shows table."""
+        """List deployments shows table (defaults to scheduled status)."""
         with (
             patch(
                 "deployment_queue_cli.main.get_stored_credentials",
@@ -221,12 +258,35 @@ class TestListCommand:
 
             assert result.exit_code == 0
             assert "Deployments" in result.output
-            # Rich truncates long values, so check for partial matches
-            assert "test-" in result.output  # Truncated service name or ID
-            assert "1.0.0" in result.output
-            assert "2.0.0" in result.output
-            assert "3.0.0" in result.output
-            assert "gcp" in result.output
+            # Verify default status is "scheduled"
+            mock_client.list_deployments.assert_called_once_with(
+                "scheduled", None, None, 20
+            )
+
+    def test_list_deployments_all(
+        self, mock_credentials: Credentials, mock_deployment_list: list[dict]
+    ) -> None:
+        """List deployments with --all flag shows all statuses."""
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.list_deployments = AsyncMock(return_value=mock_deployment_list)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(app, ["list", "--all"])
+
+            assert result.exit_code == 0
+            # Verify status is None when --all is used
+            mock_client.list_deployments.assert_called_once_with(
+                None, None, None, 20
+            )
 
     def test_list_deployments_with_filters(
         self, mock_credentials: Credentials, mock_deployment_list: list[dict]
@@ -284,6 +344,10 @@ class TestListCommand:
 
             assert result.exit_code == 0
             assert "No deployments found" in result.output
+            # Verify default status is "scheduled"
+            mock_client.list_deployments.assert_called_once_with(
+                "scheduled", None, None, 20
+            )
 
     def test_list_deployments_not_authenticated(self) -> None:
         """List fails when not authenticated."""
@@ -345,7 +409,7 @@ class TestRollbackCommand:
     def test_rollback_success(
         self, mock_credentials: Credentials, mock_deployment: dict
     ) -> None:
-        """Rollback creates new deployment."""
+        """Rollback creates new deployment with confirmation."""
         rollback_deployment = {
             **mock_deployment,
             "id": "rollback-uuid",
@@ -364,6 +428,7 @@ class TestRollbackCommand:
             ) as mock_client_class,
         ):
             mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=mock_deployment)
             mock_client.rollback_by_id = AsyncMock(return_value=rollback_deployment)
             mock_client_class.return_value = mock_client
 
@@ -372,6 +437,7 @@ class TestRollbackCommand:
                 [
                     "rollback",
                     "test-deployment-uuid",
+                    "--yes",
                 ],
             )
 
@@ -382,7 +448,7 @@ class TestRollbackCommand:
     def test_rollback_with_target_version(
         self, mock_credentials: Credentials, mock_deployment: dict
     ) -> None:
-        """Rollback to specific version."""
+        """Rollback to specific version with --yes flag."""
         with (
             patch(
                 "deployment_queue_cli.main.get_stored_credentials",
@@ -393,6 +459,7 @@ class TestRollbackCommand:
             ) as mock_client_class,
         ):
             mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=mock_deployment)
             mock_client.rollback_by_id = AsyncMock(return_value=mock_deployment)
             mock_client_class.return_value = mock_client
 
@@ -403,6 +470,7 @@ class TestRollbackCommand:
                     "test-deployment-uuid",
                     "--version",
                     "v0.9.0",
+                    "--yes",
                 ],
             )
 
@@ -412,6 +480,58 @@ class TestRollbackCommand:
             call_kwargs = mock_client.rollback_by_id.call_args
             assert call_kwargs[0][0] == "test-deployment-uuid"  # deployment_id
             assert call_kwargs[0][1] == "v0.9.0"  # target_version
+
+    def test_rollback_aborted(
+        self, mock_credentials: Credentials, mock_deployment: dict
+    ) -> None:
+        """Rollback aborted when user declines confirmation."""
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=mock_deployment)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["rollback", "test-deployment-uuid"],
+                input="n\n",
+            )
+
+            assert result.exit_code == 0
+            assert "Aborted" in result.output
+            mock_client.rollback_by_id.assert_not_called()
+
+    def test_rollback_deployment_not_found(
+        self, mock_credentials: Credentials
+    ) -> None:
+        """Rollback fails when deployment not found."""
+        with (
+            patch(
+                "deployment_queue_cli.main.get_stored_credentials",
+                return_value=mock_credentials,
+            ),
+            patch(
+                "deployment_queue_cli.main.DeploymentAPIClient"
+            ) as mock_client_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get_deployment = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["rollback", "nonexistent-uuid"],
+            )
+
+            assert result.exit_code == 1
+            assert "Deployment not found" in result.output
 
 
 class TestReleaseCommand:

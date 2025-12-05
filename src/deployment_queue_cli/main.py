@@ -172,6 +172,7 @@ def create(
     pipeline_extra_params: Optional[str] = typer.Option(
         None, "--pipeline-params", help="Pipeline extra params (JSON string)"
     ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
     api_url: Optional[str] = typer.Option(None, "--api-url"),
 ) -> None:
     """Create a new deployment."""
@@ -201,6 +202,30 @@ def create(
     if pipeline_extra_params:
         deployment["pipeline_extra_params"] = pipeline_extra_params
 
+    # Display deployment details
+    console.print("=" * 50)
+    console.print("[bold]Create Deployment[/bold]")
+    console.print("=" * 50)
+    console.print(f"[bold]Name[/bold]                  : {name}")
+    console.print(f"[bold]Version[/bold]               : {version}")
+    console.print(f"[bold]Type[/bold]                  : {deployment_type}")
+    console.print(f"[bold]Provider[/bold]              : {provider}")
+    console.print(f"[bold]Cloud Account ID[/bold]      : {cloud_account_id or 'N/A'}")
+    console.print(f"[bold]Region[/bold]                : {region or 'N/A'}")
+    console.print(f"[bold]Cell[/bold]                  : {cell_id or 'N/A'}")
+    console.print(f"[bold]Auto Deploy[/bold]           : {auto}")
+    console.print(f"[bold]Description[/bold]           : {description or 'N/A'}")
+    console.print(f"[bold]Commit SHA[/bold]            : {commit_sha or 'N/A'}")
+    console.print(f"[bold]Build URI[/bold]             : {build_uri or 'N/A'}")
+    console.print(f"[bold]Pipeline Extra Params[/bold] : {pipeline_extra_params or 'N/A'}")
+    console.print("=" * 50)
+
+    if not yes:
+        confirm = typer.confirm("Do you want to continue?")
+        if not confirm:
+            console.print("[yellow]Aborted[/yellow]")
+            raise typer.Exit(0)
+
     async def _create() -> dict:
         return await client.create_deployment(deployment)
 
@@ -216,17 +241,25 @@ def create(
 
 @app.command("list")
 def list_deployments(
+    all_deployments: bool = typer.Option(
+        False, "--all", "-a", help="List all deployments (default: scheduled only)"
+    ),
     status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Filter by provider"),
     trigger: Optional[str] = typer.Option(None, "--trigger", "-t", help="Filter by trigger"),
     limit: int = typer.Option(20, "--limit", "-n", help="Max results"),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="Override API URL"),
 ) -> None:
-    """List deployments."""
+    """List deployments (scheduled only by default, use --all for all statuses)."""
     client = get_client(api_url)
 
+    # Default to scheduled status unless --all is specified or a specific status is given
+    effective_status = status
+    if not all_deployments and status is None:
+        effective_status = "scheduled"
+
     async def _list() -> list[dict]:
-        return await client.list_deployments(status, provider, trigger, limit)
+        return await client.list_deployments(effective_status, provider, trigger, limit)
 
     try:
         deployments = asyncio.run(_list())
@@ -280,23 +313,60 @@ def rollback(
     target_version: Optional[str] = typer.Option(
         None, "--version", "-v", help="Target version (default: previous)"
     ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
     api_url: Optional[str] = typer.Option(None, "--api-url"),
 ) -> None:
     """Create rollback deployment from an existing deployment ID."""
     client = get_client(api_url)
 
+    async def _get() -> Optional[dict]:
+        return await client.get_deployment(deployment_id)
+
     async def _rollback() -> dict:
         return await client.rollback_by_id(deployment_id, target_version)
 
+    # Fetch deployment details first
     try:
-        d = asyncio.run(_rollback())
+        d = asyncio.run(_get())
     except DeploymentAPIError as e:
         handle_api_error(e)
 
-    console.print(f"[green]Rollback created: {d['name']} -> {d['version']}[/green]")
-    console.print(f"  ID: {d['id']}")
-    console.print(f"  Source: {d.get('source_deployment_id', 'N/A')}")
-    console.print(f"  Rollback from: {d.get('rollback_from_deployment_id', 'N/A')}")
+    if not d:
+        console.print(f"[red]Deployment not found: {deployment_id}[/red]")
+        raise typer.Exit(1)
+
+    # Display deployment details
+    console.print("=" * 50)
+    console.print("[bold]Rollback Deployment[/bold]")
+    console.print("=" * 50)
+    console.print(f"[bold]Deployment ID[/bold]         : {d['id']}")
+    console.print(f"[bold]Provider[/bold]              : {d.get('provider', 'N/A')}")
+    console.print(f"[bold]Region[/bold]                : {d.get('region', 'N/A')}")
+    console.print(f"[bold]Cloud Account ID[/bold]      : {d.get('cloud_account_id', 'N/A')}")
+    console.print(f"[bold]Cell[/bold]                  : {d.get('cell', 'N/A') or 'N/A'}")
+    console.print(f"[bold]Type[/bold]                  : {d.get('type', 'N/A')}")
+    console.print(f"[bold]Name[/bold]                  : {d['name']}")
+    console.print(f"[bold]Version[/bold]               : {d['version']}")
+    console.print(f"[bold]Status[/bold]                : {d['status']}")
+    if target_version:
+        console.print(f"[bold]Target Version[/bold]        : {target_version}")
+    console.print("=" * 50)
+
+    if not yes:
+        confirm = typer.confirm("Do you want to continue?")
+        if not confirm:
+            console.print("[yellow]Aborted[/yellow]")
+            raise typer.Exit(0)
+
+    try:
+        result = asyncio.run(_rollback())
+    except DeploymentAPIError as e:
+        handle_api_error(e)
+
+    console.print(f"[green]Rollback created: {result['name']} -> {result['version']}[/green]")
+    console.print(f"  ID: {result['id']}")
+    console.print(f"  Source: {result.get('source_deployment_id', 'N/A')}")
+    console.print(f"  Rollback from: {result.get('rollback_from_deployment_id', 'N/A')}")
 
 
 @app.command()

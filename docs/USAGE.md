@@ -234,11 +234,12 @@ deployment-queue-cli create <name> <version> [OPTIONS]
 | `--commit` | | No | | Git commit SHA |
 | `--build-uri` | | No | | Build URI |
 | `--pipeline-params` | | No | | Pipeline extra params (JSON string) |
+| `--yes` | `-y` | No | false | Skip confirmation prompt |
 | `--api-url` | | No | | Override API URL |
 
 #### list
 
-List deployments with optional filters.
+List deployments. By default, only shows scheduled deployments. Use `--all` to see all statuses.
 
 ```bash
 deployment-queue-cli list [OPTIONS]
@@ -246,7 +247,8 @@ deployment-queue-cli list [OPTIONS]
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--status` | `-s` | | Filter by status |
+| `--all` | `-a` | false | List all deployments (default: scheduled only) |
+| `--status` | `-s` | scheduled | Filter by status |
 | `--provider` | `-p` | | Filter by provider (gcp/aws/azure) |
 | `--trigger` | `-t` | | Filter by trigger (auto/manual/rollback) |
 | `--limit` | `-n` | 20 | Maximum results |
@@ -293,6 +295,7 @@ deployment-queue-cli rollback <deployment_id> [OPTIONS]
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
 | `--version` | `-v` | No | Previous | Target version |
+| `--yes` | `-y` | No | false | Skip confirmation prompt |
 | `--api-url` | | No | | Override API URL |
 
 ## Examples
