@@ -1,6 +1,6 @@
 # Deployment Queue CLI
 
-A CLI tool for interacting with the Deployment Queue API. Manage deployments, view history, update status, and perform rollbacks from your terminal.
+A CLI tool and MCP server for interacting with the Deployment Queue API. Manage deployments, view history, update status, and perform rollbacks from your terminal or through Claude.
 
 ## Key Features
 
@@ -8,6 +8,7 @@ A CLI tool for interacting with the Deployment Queue API. Manage deployments, vi
 - **Organisation-Aware**: Switch between organisations, verify membership
 - **Rich Output**: Formatted tables and panels using Rich
 - **Async HTTP**: Fast API communication using httpx
+- **MCP Server**: Expose deployment operations as tools for Claude
 
 ## Documentation
 
@@ -177,12 +178,49 @@ deployment-queue-cli rollback my-service \
 deployment-queue-cli/
 ├── src/deployment_queue_cli/
 │   ├── main.py           # Typer CLI app and commands
+│   ├── mcp_server.py     # MCP server for Claude integration
 │   ├── client.py         # Async API client (httpx)
 │   ├── auth.py           # GitHub authentication
 │   └── config.py         # Settings via pydantic-settings
 ├── tests/                # Test suite
 └── docs/                 # Documentation
 ```
+
+## MCP Server
+
+The MCP server exposes deployment operations as tools for Claude.
+
+### Setup with Claude Desktop
+
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "deployment-queue": {
+      "command": "deployment-queue-mcp",
+      "env": {
+        "DEPLOYMENT_QUEUE_CLI_API_URL": "https://deployments.example.com"
+      }
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_deployments` | List deployments with optional filters |
+| `create_deployment` | Create a new deployment |
+| `get_deployment` | Get deployment details by ID |
+| `release_deployment` | Release a deployment (set to in_progress) |
+| `update_deployment_status` | Update deployment status |
+| `rollback_deployment` | Create a rollback deployment |
+
+### Authentication
+
+The MCP server uses the same credentials as the CLI. Run `deployment-queue-cli login` first to authenticate.
 
 ## GitHub OAuth App Setup
 

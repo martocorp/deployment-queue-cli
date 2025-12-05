@@ -34,6 +34,7 @@ This is a CLI tool for the Deployment Queue API, built with Typer and Rich for t
 - `auth.py` - GitHub authentication (Device Flow and PAT). Handles token storage, org membership verification
 - `client.py` - Async HTTP client for the Deployment Queue API using httpx. All API methods are async
 - `main.py` - Typer CLI commands. Wraps async client calls with `asyncio.run()`
+- `mcp_server.py` - MCP server exposing deployment operations as tools for Claude. Reuses client and auth modules
 
 **Key patterns:**
 

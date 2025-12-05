@@ -10,10 +10,12 @@ dependencies = [
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    "mcp>=1.0.0",
 ]
 
 [project.scripts]
 deployment-queue-cli = "deployment_queue_cli.main:main"
+deployment-queue-mcp = "deployment_queue_cli.mcp_server:main"
 
 [project.optional-dependencies]
 dev = [
